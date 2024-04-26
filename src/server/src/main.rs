@@ -3,8 +3,20 @@ use axum::{
     Router,
 };
 
+use clap::Parser;
+use server::config::Config;
+use server::http;
+
 #[tokio::main]
 async fn main() {
+    // Load .env file if it exists
+    dotenv::dotenv().ok();
+
+    // Load config
+    let config = Config::parse();
+
+    println!("{config:?}");
+
     // build our application with a single route
     let app = Router::new().route("/", get(|| async { "Hello, World!" }));
 

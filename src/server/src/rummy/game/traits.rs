@@ -1,25 +1,25 @@
 use super::error::GameError;
-
 /// A Rummy variant must minimally implement these traits.
 pub trait Gameable: 
     GameInit
-    + GameDraw 
-    + GameMoves
-    + GameDiscard
+    + GameActions
     + GameAdmin 
     + GameScoring 
 {}
 
 pub trait GameInit {
+    /// The configuration for the game.
+    type Config;
+
     /// Creates a new game with the given player IDs.
-    fn new(player_ids: Vec<usize>) -> Self;
+    fn new(player_ids: Vec<usize>, config: Self::Config) -> Self;
 
     /// Deals active players the configured amount of cards for this game variant,
     /// only during `GamePhase::RoundEnd`.
     fn init_round(&mut self) -> Result<(), GameError>;
 }
 
-pub trait GameDraw {
+pub trait GameActions {
     /// Draws a card from the deck for the current player,
     /// only during `GamePhase::PlayerDraw`.
     fn draw_deck(&mut self) -> Result<(), GameError>;
@@ -27,9 +27,7 @@ pub trait GameDraw {
     /// Draws the configured amount of cards from the discard pile for the current player,
     /// only during `GamePhase::PlayerDraw`.
     fn draw_discard_pile(&mut self) -> Result<(), GameError>;
-}
 
-pub trait GameMoves {
     /// Attempts to form a meld for the current player using a `Vec` of card indices,
     /// only during `GamePhase::PlayerPlays`.
     fn form_meld(&mut self, indices: Vec<usize>) -> Result<(), GameError>;
@@ -41,9 +39,7 @@ pub trait GameMoves {
         card_index: usize, 
         target_player_index: usize, 
         target_meld_index: usize) -> Result<(), GameError>;
-}
 
-pub trait GameDiscard {
     /// Attempts to layoff a chosen card of the current player to a chosen meld of a chosen player,
     /// only during `GamePhase::PlayerDiscard`.
     fn discard_card(&mut self, card_index: usize) -> Result<(), GameError>;

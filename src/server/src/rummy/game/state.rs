@@ -17,6 +17,7 @@ pub enum GamePhase {
     GameEnd
 }
 
+
 /// The state of a `Game`.
 pub struct GameState {
     phase: GamePhase,

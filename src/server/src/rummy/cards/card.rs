@@ -60,7 +60,11 @@ impl Ord for Card {
         }
         else {
             let max_rank = Rank::King as u8;
-            let highest_rank = self.deck.config.high_rank as u8;
+            let highest_rank = if self.deck.config.high_rank.is_none() { 
+                max_rank 
+            } else {
+                self.deck.config.high_rank.unwrap() as u8
+            };
             let rank_offset = max_rank - highest_rank;
 
             let self_rank = (self.rank as u8 + rank_offset) % (max_rank+1);

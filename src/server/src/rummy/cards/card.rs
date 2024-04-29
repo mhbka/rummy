@@ -11,7 +11,9 @@ pub struct Card {
     pub(crate) suit: Suit,
 
     #[serde(skip_serializing, skip_deserializing)]
-    pub(crate) deck: Rc<Deck>
+    pub(crate) deck: Rc<Deck> 
+    // TODO: make this Option so we can default it to None for serde
+    // TODO: then figure out how to Rc to the deck upon deserializing
 }
 
 impl Card {

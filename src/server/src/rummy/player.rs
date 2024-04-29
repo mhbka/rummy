@@ -1,19 +1,29 @@
 use super::cards::{card::Card, meld::Meld};
 
 pub struct Player {
-    pub(super) id: usize,
-    pub(super) cards: Vec<Card>,
-    pub(super) melds: Vec<Meld>,
-    pub(super) active: bool
+    pub(crate) id: usize,
+    pub(crate) cards: Vec<Card>,
+    pub(crate) melds: Vec<Meld>,
+    pub(crate) active: bool
 }
 
 impl Player {
-    pub(super) fn new(id: usize) -> Self {
+    /// Creates a new player.
+    pub(crate) fn new(id: usize) -> Self {
         Player {
             id,
             cards: Vec::new(),
             melds: Vec::new(),
             active: true
         }
+    }
+
+    /// Resets a player's state.
+    /// 
+    /// **Note**: This destroys their hand/meld cards, 
+    /// so a new deck should be created.
+    pub(crate) fn reset(&mut self) {
+        self.cards.clear();
+        self.melds.clear();
     }
 }

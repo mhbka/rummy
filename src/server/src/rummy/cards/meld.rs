@@ -32,14 +32,14 @@ pub trait Meldable {
 
 /// A Rummy meld set.
 pub struct Set {
-    pub(crate) cards: Vec<Card>,
+    cards: Vec<Card>,
     pub(crate) set_rank: Rank
 }
 
 impl Meldable for Set {
     fn new(mut cards: Vec<Card>) -> Result<Self, Vec<Card>> {
         // TODO: do I just assume that every card is tied to the same deck?
-        match cards[0].deck.config.wildcard_rank {
+        match cards[0].deck.get_config().wildcard_rank {
             // every card has same rank, or is a wildcard.
             Some(wildcard_rank) => {
                 let mut set_rank: Option<Rank> = None;
@@ -87,7 +87,7 @@ impl Meldable for Set {
         if card.rank != self.set_rank { 
             return Err(card); 
         }
-        else if let Some(wildcard_rank) = card.deck.config.wildcard_rank {
+        else if let Some(wildcard_rank) = card.deck.get_config().wildcard_rank {
             if card.rank != wildcard_rank {
                 return Err(card);
             }
@@ -109,7 +109,7 @@ impl Meldable for Run {
         let backup_cards = cards.clone();
 
         // TODO: do I just assume that every card is tied to the same deck?
-        let deck_config = &cards[0].deck.config;
+        let deck_config = cards[0].deck.get_config();
 
         let mut wildcards = match deck_config.wildcard_rank {
             Some(wildcard_rank) => {

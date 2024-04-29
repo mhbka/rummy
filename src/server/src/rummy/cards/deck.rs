@@ -24,16 +24,16 @@ pub struct DeckConfig {
 /// - **stock**, face-down cards that can be drawn at the start of each turn
 /// - **discard pile**, discarded cards, which can also be drawn
 pub struct Deck {
-    pub(super) config: DeckConfig,
-    pub(super) stock: Vec<Card>,
-    pub(super) discard_pile: Vec<Card>
+    config: DeckConfig,
+    stock: Vec<Card>,
+    discard_pile: Vec<Card>
 }
 
 impl Deck {
     /// Creates a new deck following settings in `config`.
     /// 
     /// **Note**: Returns `Err` if `pack_count` < 1, or `use_joker` is true while `wildcard_rank` isn't `None`.
-    /// TODO: why can't I make this pub(super) without angering basic.rs?
+    /// TODO: why can't I make this pub(crate) without angering basic.rs?
     pub(crate) fn new(config: DeckConfig) -> Result<Self, String> {
         if config.pack_count < 1 {
             return Err("Pack count < 1 while instantiating a Deck".to_owned());
@@ -69,7 +69,7 @@ impl Deck {
     /// If the amount is greater than the stock's size, return `Err`.
     /// 
     /// If the deck is empty after drawing, shuffle the discarded cards back into it.
-    pub(super) fn draw(&mut self, amount: usize) -> Result<Card, String> {
+    pub(crate) fn draw(&mut self, amount: usize) -> Result<Vec<Card>, String> {
         if amount > self.stock.len() {
             return Err(format!("Draw amount ({amount}) greater than stock size ({})", self.stock.len()));
         }
@@ -83,7 +83,7 @@ impl Deck {
     }
 
     /// See the top card of the discard pile, if there is one.
-    pub(super) fn peek_discard_pile(&self) -> Option<(Rank, Suit)> {
+    pub(crate) fn peek_discard_pile(&self) -> Option<(Rank, Suit)> {
         self.discard_pile
             .last()
             .map(|card| card.data())
@@ -95,7 +95,7 @@ impl Deck {
     /// return `Err`.
     /// 
     /// If `None` amount is specified, attempt to draw the entire discard pile.
-    pub(super) fn draw_discard_pile(&mut self, amount: Option<usize>) -> Result<Vec<Card>, String> {
+    pub(crate) fn draw_discard_pile(&mut self, amount: Option<usize>) -> Result<Vec<Card>, String> {
         let discard_size = self.discard_pile.len();
         if discard_size == 0 {
             return Err(format!("Can't draw from empty discard pile"));
@@ -114,7 +114,7 @@ impl Deck {
     }
 
     /// Moves cards from `cards` into the discard pile, leaving it empty.
-    pub(super) fn add_to_discard_pile(&mut self, cards: &mut Vec<Card>) {
+    pub(crate) fn add_to_discard_pile(&mut self, cards: &mut Vec<Card>) {
         self.discard_pile.append(cards);
     }
 
@@ -122,9 +122,27 @@ impl Deck {
     /// 
     /// Typically called when stock is emptied during gameplay,
     /// or when starting a new round (and all player cards have been discarded).
-    pub(super) fn reset_deck(&mut self) {
+    pub(crate) fn reset_deck(&mut self) {
         self.stock.append(&mut self.discard_pile);
         self.stock.shuffle(&mut rand::thread_rng());
+    }
+}
+
+/// Reference getters
+impl Deck {
+    /// Get a reference to the deck configuration.
+    pub(crate) fn get_config(&self) -> &DeckConfig {
+        &self.config
+    }
+
+    /// Get a reference to the deck stock.
+    pub(crate) fn get_cards(&self) -> &Vec<Card> {
+        &self.stock
+    }
+
+    /// Get a reference to the deck discard pile.
+    pub(crate) fn get_discard_pile(&self) -> &Vec<Card> {
+        &self.discard_pile
     }
 }
 

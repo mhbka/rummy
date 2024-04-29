@@ -10,35 +10,12 @@ use super::super::traits::{
     GameAdmin
 };
 
-// TODO: custom error types may be a good idea at this point,
-// TODO: but need to be able to convert between them to return properly
-
-/// Get the amount of cards to deal
-/// given the player and pack count;
-/// follows the [Wiki rules](https://en.wikipedia.org/wiki/Rummy#Basic_rummy).
-/// 
-/// If the counts don't follow the rules, an `Err` is returned.
-const fn get_deal_count(player_count: usize, pack_count: usize) -> Result<usize, String> {
-    let mut deal_count = None;
-    if player_count == 2 && pack_count == 1 { deal_count = Some(10); }
-    else if player_count >= 3 && player_count <= 10 {
-        if pack_count == 1 { deal_count = Some(7); } // for player_count = 3, it should be 7 OR 10, but feels unnecessary at that point
-        else { deal_count = Some(10); }
-    }
-    else if player_count == 6 {
-        if pack_count == 1 { deal_count = Some(6); }
-        else { deal_count = Some(10); }
-    }
-    else if player_count == 7 && pack_count == 2 { deal_count = Some(10); }
-
-    if deal_count.is_some() { return deal_count; }
-    Err(format!("Unallowed player count ({player_count}) and pack count ({pack_count})"))
-}
 
 /// Holds customizable settings for a basic Rummy game.
 pub struct BasicConfig {
     pub deck_config: DeckConfig
 }
+
 
 /// A basic Rummy game;
 /// follows the implementation detailed [here](https://en.wikipedia.org/wiki/Rummy#Basic_rummy).
@@ -50,25 +27,26 @@ pub struct BasicRummy {
 }
 
 impl BasicRummy {
-    /// Get the amount of cards to deal
-    /// given the player and pack count;
+    /// Get the amount of cards to deal given the player and pack count;
     /// follows the [Wiki rules](https://en.wikipedia.org/wiki/Rummy#Basic_rummy).
     /// 
     /// If the counts don't follow the rules, an `Err` is returned.
     fn get_deal_count(player_count: usize, pack_count: usize) -> Result<usize, String> {
-        let mut deal_count = None;
-        if player_count == 2 && pack_count == 1 { deal_count = Some(10); }
-        else if player_count >= 3 && player_count <= 10 {
-            if pack_count == 1 { deal_count = Some(7); } // for player_count = 3, it should be 7 OR 10, but feels unnecessary at that point
-            else { deal_count = Some(10); }
-        }
-        else if player_count == 6 {
-            if pack_count == 1 { deal_count = Some(6); }
-            else { deal_count = Some(10); }
-        }
-        else if player_count == 7 && pack_count == 2 { deal_count = Some(10); }
-
-        deal_count.ok_or(format!("Unallowed player count ({player_count}) and pack count ({pack_count})"))
+        let deal_count = match (player_count, pack_count) {
+            (2, 1) => 10,
+            (3..=10, 1) => 7,
+            (3..=10, _) => 10,
+            (6, 1) => 6,
+            (6, _) => 10,
+            (7, 2) => 10,
+            _ => {
+                return Err(format!(
+                    "Unallowed player count ({player_count}) and pack count ({pack_count})"
+                ));
+            }
+        };
+    
+        Ok(deal_count)
     }
 
     /// Gets the number of currently active players.
@@ -98,16 +76,22 @@ impl GameInit for BasicRummy {
             .map(|&id| Player::new(id))
             .collect();
 
-        Ok(BasicRummy { config, state, deck, players })
+        Ok(
+            BasicRummy { config, state, deck, players }
+        )
     }
 
     fn init_round(&mut self) -> Result<(), String> {
+        self.players
+            .iter()
+            .for_each(|player| player.reset());
+
         let pack_count = self.config.deck_config.pack_count;
         let player_count = self.get_active_players();
         let deal_count = BasicRummy::get_deal_count(player_count, pack_count)?;
 
         for player in &self.players {
-            let cards = self.deck.draw(deal_count).unwrap();
+            let mut cards = self.deck.draw(deal_count).unwrap();
             player.cards.append(&mut cards);
         }
 

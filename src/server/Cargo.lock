@@ -1419,6 +1419,7 @@ dependencies = [
  "dotenv",
  "hmac",
  "jwt",
+ "rand",
  "serde",
  "sqlx",
  "tokio",

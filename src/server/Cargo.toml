@@ -24,3 +24,4 @@ jwt = "0.16.0"
 serde = { version = "1.0.198", features = ["derive"] }
 clap = { version = "4.5.4", features = ["derive", "env"] }
 dotenv = "0.15.0"
+rand = "0.8.5"

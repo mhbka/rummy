@@ -9,7 +9,6 @@ use std::{rc::Rc, cmp::Ordering};
 pub struct Card {
     pub(crate) rank: Rank,
     pub(crate) suit: Suit,
-    pub(crate) weight: u8,
 
     #[serde(skip_serializing, skip_deserializing)]
     pub(crate) deck: Rc<Deck>
@@ -20,16 +19,15 @@ impl Card {
     ///  
     /// Typically this is done inside a `Deck` instantiation,
     /// as the card depends on the deck's configuration for comparisons.
-    pub(super) fn new(deck: Rc<Deck>, rank: Rank, suit: Suit, weight: u8) -> Self {
+    pub(super) fn new(deck: Rc<Deck>, rank: Rank, suit: Suit) -> Self {
         Card {
-            deck,
             rank,
             suit,
-            weight
+            deck
         }
     }
 
-    /// Gets the card's suit and rank.
+    /// Gets the card's rank and suit.
     pub fn data(&self) -> (Rank, Suit) {
         (self.rank, self.suit)
     }

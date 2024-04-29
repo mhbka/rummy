@@ -26,44 +26,74 @@ pub trait Meldable {
     /// 
     /// **NOTE**: in the `Error` case, the caller must ensure the card is moved somewhere concrete,
     /// like a deck/player hand/discard pile.
-    fn try_add_card(index: usize, card: Card) -> Result<(), Card>;
+    fn try_add_card(&mut self, card: Card) -> Result<(), Card>;
 }
 
 
 /// A Rummy meld set.
 pub struct Set {
-    pub(crate) cards: Vec<Card>
+    pub(crate) cards: Vec<Card>,
+    pub(crate) set_rank: Rank
 }
 
 impl Meldable for Set {
     fn new(mut cards: Vec<Card>) -> Result<Self, Vec<Card>> {
         // TODO: do I just assume that every card is tied to the same deck?
-        let deck_config = &cards[0].deck.config;
-        let mut wildcard_count = 0;
-        let mut set_rank: Option<Rank> = None;
-
-        for card in &cards {
-            if let Some(wildcard_rank) = deck_config.wildcard_rank { 
-                if wildcard_rank == card.rank {
-                    wildcard_count += 1;
-                    continue; 
+        match cards[0].deck.config.wildcard_rank {
+            // every card has same rank, or is a wildcard.
+            Some(wildcard_rank) => {
+                let mut set_rank: Option<Rank> = None;
+                if cards
+                    .iter()
+                    .all(|card| {
+                        if card.rank == wildcard_rank { return true; }
+                        else {
+                            match set_rank {
+                                Some(rank) => return card.rank == rank,
+                                None => {
+                                    set_rank = Some(card.rank);
+                                    return true;
+                                }
+                            }
+                        }
+                    }) {
+                    if let Some(set_rank) = set_rank {
+                        return Ok(Set{set_rank, cards});
+                    }
+                    else { // means no non-wildcard, which we don't want to allow
+                        return Err(cards);
+                    }
+                }
+                else {
+                    return Err(cards);
+                }
+                
+            },
+            // every card has same rank.
+            None => {
+                if cards
+                    .iter()
+                    .all(|card| card.rank == cards[0].rank) {
+                    return Ok(Set{set_rank: cards[0].rank, cards});
+                }   
+                else {
+                    return Err(cards);
                 }
             }
-            
-            if let None = set_rank { 
-                set_rank = Some(card.rank);
-            }
-            if set_rank.unwrap() != card.rank {
-                if wildcard_count > 0 { wildcard_count -= 1; }
-                else { return Err(cards); }
-            }
         }
-
-        Ok(Set { cards })
     }
 
-    fn try_add_card(index: usize, card: Card) -> Result<(), Card> {
-        todo!();
+    fn try_add_card(&mut self, card: Card) -> Result<(), Card> {
+        if card.rank != self.set_rank { 
+            return Err(card); 
+        }
+        else if let Some(wildcard_rank) = card.deck.config.wildcard_rank {
+            if card.rank != wildcard_rank {
+                return Err(card);
+            }
+        }
+        self.cards.push(card);
+        Ok(())
     }
 }
 
@@ -117,7 +147,7 @@ impl Meldable for Run {
         Ok(Run { cards })
     }
 
-    fn try_add_card(index: usize, card: Card) -> Result<(), Card> {
+    fn try_add_card(&mut self, card: Card) -> Result<(), Card> {
         todo!();
     }
 }

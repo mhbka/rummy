@@ -1,6 +1,7 @@
 use super::cards::{card::Card, meld::Meld};
 
-pub struct Player {
+/// A Rummy player.
+pub(crate) struct Player {
     pub(crate) id: usize,
     pub(crate) cards: Vec<Card>,
     pub(crate) melds: Vec<Meld>,

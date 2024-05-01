@@ -1,5 +1,6 @@
+use crate::rummy::cards::meld::{Meld, Set};
 use crate::rummy::player::{self, Player};
-use crate::rummy::game::state::GameState;
+use crate::rummy::game::state::{GamePhase, GameState};
 use crate::rummy::cards::{
     card::Card,
     deck::{Deck, DeckConfig}
@@ -55,6 +56,11 @@ impl BasicRummy {
             .into_iter()
             .fold(0, |acc, p| acc + p.active as usize)
     }
+
+    fn verify_gamephase(&self, intended_phase: GamePhase) -> Result<(), String> {
+        if self.state.phase == intended_phase { return Ok(()); }
+        return Err(format!("Required game phase: {:?} (actual: {:?})", intended_phase, self.state.phase));
+    }
 }
 
 
@@ -64,6 +70,8 @@ impl GameInit for BasicRummy {
     /// Create a basic Rummy game. Note the following constraints:
     /// - 2-7 players only
     /// - 3-6 players may choose between using 1 or 2 decks
+    /// 
+    /// Breaking a constraint in `config` will return an `Err`.
     fn new(player_ids: Vec<usize>, config: Self::Config) -> Result<Self, String> {
         let pack_count = config.deck_config.pack_count;
         let player_count = player_ids.len();
@@ -82,6 +90,8 @@ impl GameInit for BasicRummy {
     }
 
     fn init_round(&mut self) -> Result<(), String> {
+        self.verify_gamephase(GamePhase::RoundEnd)?;
+
         self.players
             .iter()
             .for_each(|player| player.reset());
@@ -101,27 +111,41 @@ impl GameInit for BasicRummy {
 
 impl GameActions for BasicRummy {
     fn draw_deck(&mut self) -> Result<(), String> {
-        todo!()
+        self.verify_gamephase(GamePhase::PlayerPlays)?;
+
+        let mut card = self.deck.draw(1).unwrap(); // drawing 1 should always be OK
+        let player = &self.players[self.state.player_index];
+        player.cards.append(&mut card);
+        Ok(())
     }
 
     fn draw_discard_pile(&mut self) -> Result<(), String> {
-        todo!()
+        self.verify_gamephase(GamePhase::PlayerPlays)?;
+
+        let mut card = self.deck.draw_discard_pile(Some(1)).unwrap(); // drawing 1 should always be OK
+        let player = &self.players[self.state.player_index];
+        player.cards.append(&mut card);
+        Ok(())
     }
 
     fn form_meld(&mut self, indices: Vec<usize>) -> Result<(), String> {
-        todo!()
+        self.verify_gamephase(GamePhase::PlayerPlays)?;
+
+        let meld = Meld(Set::new(cards))
     }
 
     fn layoff_card(
         &mut self, 
         card_index: usize, 
         target_player_index: usize, 
-        target_meld_index: usize) -> Result<(), String> {
-        todo!()
+        target_meld_index: usize) 
+        -> Result<(), String> 
+    {
+        self.verify_gamephase(GamePhase::PlayerPlays)?;
     }
 
     fn discard_card(&mut self, card_index: usize) -> Result<(), String> {
-        todo!()
+        self.verify_gamephase(GamePhase::PlayerDraw)?;
     }
 }
 
@@ -135,6 +159,6 @@ impl GameAdmin for BasicRummy {
     }
 
     fn calculate_score(&mut self) -> Result<(), String> {
-        todo!()
+        self.verify_gamephase(GamePhase::GameEnd)?;
     }
 }

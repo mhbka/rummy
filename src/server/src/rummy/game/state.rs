@@ -1,5 +1,6 @@
 /// The discrete phases of a Rummy game.
 /// Each phase allows/forbids certain behaviours within `Game`.
+#[derive(PartialEq, Debug)]
 pub enum GamePhase {
     /// The current player can draw from the deck or discard pile.
     PlayerDraw,
@@ -20,9 +21,9 @@ pub enum GamePhase {
 
 /// The state of a `Game`.
 pub struct GameState {
-    phase: GamePhase,
-    round_number: isize,
-    player_index: usize,
+    pub(super) phase: GamePhase,
+    pub(super) round_number: isize,
+    pub(super) player_index: usize,
 }
 
 impl GameState {

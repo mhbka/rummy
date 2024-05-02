@@ -1,37 +1,57 @@
-/// The discrete phases of a Rummy game.
-/// Each phase allows/forbids certain behaviours within `Game`.
-#[derive(PartialEq, Debug)]
-pub enum GamePhase {
-    /// The current player can draw from the deck or discard pile.
-    PlayerDraw,
+/// Sealed trait indicating a game phase.
+trait GamePhase {}
 
-    /// The current player can play valid moves.
-    PlayerPlays,
+/// GamePhase options.
+struct DrawPhase {}
+struct PlayPhase {}
+struct DiscardPhase {}
+struct RoundEndPhase {}
+struct GameEndPhase {}
 
-    /// The current player can discard a card.
-    PlayerDiscard,
+impl GamePhase for DrawPhase {}
+impl GamePhase for PlayPhase {}
+impl GamePhase for DiscardPhase {}
+impl GamePhase for RoundEndPhase {}
+impl GamePhase for GameEndPhase {}
 
-    /// The current round has ended.
-    RoundEnd,
-    
-    /// The game has ended.
-    GameEnd
+
+/// Trait indicating a game.
+trait Gameable<P: GamePhase> {}
+
+
+/// The internal state of a `Game`.
+pub struct GameState<P: GamePhase> {
+    round_number: isize,
+    player_index: usize,
+    phase: P
 }
 
-
-/// The state of a `Game`.
-pub struct GameState {
-    pub(super) phase: GamePhase,
-    pub(super) round_number: isize,
-    pub(super) player_index: usize,
-}
-
-impl GameState {
+impl GameState<RoundEndPhase> {
     pub(super) fn new() -> Self {
         GameState {
-            phase: GamePhase::RoundEnd,
-            round_number: -1,
+            round_number: 0,
             player_index: 0
         }
     }
 }
+
+pub struct Game<P: GamePhase> {
+    pub(super) deck: Deck,
+    pub(super) players: Vec<Player>,
+    state: GameState<P>
+}
+
+impl Game<DrawPhase> {
+    fn draw(&mut self) { /* draw card */ }
+    fn next(mut self) -> Game<PlayPhase> { /* change internal state */ }
+}
+
+impl Game<PlayPhase> {
+    fn form_meld(&mut self) { /* form meld from cards */ }
+    fn next(mut self) -> Game<PlayPhase> { /* change internal state */ }
+}
+
+/* same idea for other */
+
+
+

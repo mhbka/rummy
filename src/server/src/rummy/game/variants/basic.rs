@@ -1,7 +1,7 @@
-use crate::rummy::cards::meld::{Meld, Set};
 use crate::rummy::player::{self, Player};
 use crate::rummy::game::state::{GamePhase, GameState};
 use crate::rummy::cards::{
+    meld::{Meld, Set, Run}
     card::Card,
     deck::{Deck, DeckConfig}
 };
@@ -57,9 +57,15 @@ impl BasicRummy {
             .fold(0, |acc, p| acc + p.active as usize)
     }
 
+    /// Verifies that the current gamephase matches the intended one.
     fn verify_gamephase(&self, intended_phase: GamePhase) -> Result<(), String> {
         if self.state.phase == intended_phase { return Ok(()); }
         return Err(format!("Required game phase: {:?} (actual: {:?})", intended_phase, self.state.phase));
+    }
+
+    /// Returns the current player.
+    fn get_current_player(&self) -> &Player {
+        &self.players[self.state.player_index]
     }
 }
 
@@ -123,7 +129,7 @@ impl GameActions for BasicRummy {
         self.verify_gamephase(GamePhase::PlayerPlays)?;
 
         let mut card = self.deck.draw_discard_pile(Some(1)).unwrap(); // drawing 1 should always be OK
-        let player = &self.players[self.state.player_index];
+        let player = self.get_current_player();
         player.cards.append(&mut card);
         Ok(())
     }
@@ -131,7 +137,12 @@ impl GameActions for BasicRummy {
     fn form_meld(&mut self, indices: Vec<usize>) -> Result<(), String> {
         self.verify_gamephase(GamePhase::PlayerPlays)?;
 
-        let meld = Meld(Set::new(cards))
+        let cards = self.get_current_player().cards
+            .iter()
+            .enumerate()
+            .filter(|(idx, _)| indices.contains(idx))
+            .map(|(_, &card)| card)
+            .collect();
     }
 
     fn layoff_card(

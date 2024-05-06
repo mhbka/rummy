@@ -37,9 +37,7 @@ mod error;
 // mod profiles;
 mod users;
 
-pub use error::{Error, ResultExt};
-
-pub type Result<T, E = Error> = std::result::Result<T, E>;
+pub use error::{HttpError, ResultExt};
 
 use tower_http::{
     catch_panic::CatchPanicLayer, compression::CompressionLayer,
@@ -60,32 +58,21 @@ use tower_http::{
 /// on and off, and disable any unused extension objects) but it's really up to a
 /// judgement call.
 #[derive(Clone)]
-pub(crate) struct ApiContext {
+pub(crate) struct AppState {
     config: Arc<Config>,
     db: PgPool,
 }
 
+
+/// Sets up and starts the server.
 pub async fn serve(config: Config, db: PgPool) -> anyhow::Result<()> {
-    let api_context = ApiContext {
+    let app_state = AppState {
         config: Arc::new(config),
         db,
     };
 
-    // Bootstrapping an API is both more intuitive with Axum than Actix-web but also
-    // a bit more confusing at the same time.
-    //
-    // Coming from Actix-web, I would expect to pass the router into `ServiceBuilder` and not
-    // the other way around.
-    //
-    // It does look nicer than the mess of `move || {}` closures you have to do with Actix-web,
-    // which, I suspect, largely has to do with how it manages its own worker threads instead of
-    // letting Tokio do it.
-    let app = api_router(api_context);
+    let app = api_router(app_state);
 
-    // We use 8080 as our default HTTP server port, it's pretty easy to remember.
-    //
-    // Note that any port below 1024 needs superuser privileges to bind on Linux,
-    // so 80 isn't usually used as a default for that reason.
     let addr = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 8080));
     let listener = TcpListener::bind(addr).await?;
     axum::serve(listener, app)
@@ -94,12 +81,13 @@ pub async fn serve(config: Config, db: PgPool) -> anyhow::Result<()> {
         .context("error running HTTP server")
 }
 
-fn api_router(api_context: ApiContext) -> Router {
-    // This is the order that the modules were authored in.
+
+/// Creates the main API router and combines all other routers.
+fn api_router(state: AppState) -> Router {
+    // TODO: add other routers as merge() calls here
     Router::new()
         .merge(users::router())
-        .merge(profiles::router())
-        .merge(articles::router())
+    
         // Enables logging. Use `RUST_LOG=tower_http=debug`
         .layer((
             SetSensitiveHeadersLayer::new([AUTHORIZATION]),
@@ -108,9 +96,11 @@ fn api_router(api_context: ApiContext) -> Router {
             TimeoutLayer::new(Duration::from_secs(30)),
             CatchPanicLayer::new(),
         ))
-        .with_state(api_context)
+        .with_state(state)
 }
 
+
+/// Sends a shutdown signal to the server if ctrl+c is pressed.
 async fn shutdown_signal() {
     use tokio::signal;
 

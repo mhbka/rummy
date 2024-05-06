@@ -6,23 +6,26 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# Core crates - runtime, web framework, database interface
+# core crates - runtime, web framework, database interface
 axum = "0.7.5"
 sqlx = { version = "0.7.4", features = ["runtime-tokio", "tls-native-tls", "postgres", "uuid", "time"] }
-tokio = { version = "1.37.0", features = ["rt-multi-thread"] }
+tokio = { version = "1.37.0", features = ["full"] }
 
-# Axum uses Tower types
+# types here used by Axum
 tower = "0.4.13"
 tower-http = "0.5.2"
 
-# User authentication
+# user auth
 argon2 = "0.5.3"
 hmac = "0.12.1"
 jwt = "0.16.0"
 
-# Other utility crates
+# other utility crates
 serde = { version = "1.0.198", features = ["derive"] }
 clap = { version = "4.5.4", features = ["derive", "env"] }
 dotenv = "0.15.0"
 rand = "0.8.5"
 strum = { version = "0.26.2", features = ["derive"] }
+anyhow = "1.0.82"
+thiserror = "1.0.59"
+log = "0.4.21"

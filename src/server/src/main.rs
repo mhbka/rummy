@@ -15,8 +15,6 @@ async fn main() {
     // Load config
     let config = Config::parse();
 
-    println!("{config:?}");
-
     // build our application with a single route
     let app = Router::new().route("/", get(|| async { "Hello, World!" }));
 

@@ -1,10 +1,18 @@
 use axum::Router;
+use axum::routing::{get, post};
+use super::super::AppState;
+use super::handlers::{
+    create_user,
+    login_user,
+    get_current_user,
+    update_user,
+    get_user_profile
+};
 
-pub(crate) fn router() -> Router<ApiContext> {
-    // By having each module responsible for setting up its own routing,
-    // it makes the root module a lot cleaner.
+pub(super) fn router() -> Router<AppState> {
     Router::new()
-        .route("/users/signup", post(create_user))
-        .route("/users/login", post(login_user))
-        .route("/users/update", get(get_current_user).put(update_user))
+        .route("/signup", post(create_user))
+        .route("/login", post(login_user))
+        .route("/update", get(get_current_user).put(update_user))
+        .route("/profiles/:username", get(get_user_profile))
 }

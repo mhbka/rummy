@@ -2,9 +2,7 @@ use axum::extract::State;
 use axum::Json;
 use crate::http::error::{HttpError, HttpResult};
 use super::types::{
-    UserBody,
-    User,
-    NewUser
+    NewUser, UpdateUser, User, UserBody
 };
 use super::util::{hash_password, verify_password};
 use super::AppState;
@@ -45,7 +43,7 @@ pub(super) async fn create_user(
 }
 
 
-// Attempts to log in a user.
+/// Attempts to log in a user.
 pub(super) async fn login_user(
     app_state: State<AppState>,
     Json(req): Json<UserBody<LoginUser>>,
@@ -113,9 +111,10 @@ pub(super) async fn get_current_user(
 // Get the profile of a user.
 // TODO: this should include game statistics and stuff; will handle that down the line
 pub(super) async fn get_user_profile(
-    ctx: State<AppState>,
+    app_state: State<AppState>,
     Path(username): Path<String>,
-) -> Result<Json<ProfileBody>> {
+) -> Result<Json<ProfileBody>> 
+{
     unreachable!();
 
     // Since our query columns directly match an existing struct definition,
@@ -137,10 +136,70 @@ pub(super) async fn get_user_profile(
         username,
         maybe_auth_user.user_id()
     )
-    .fetch_optional(&ctx.db)
+    .fetch_optional(&app_state.db)
     .await?
-    .ok_or(Error::NotFound)?;
+    .ok_or(HttpError::NotFound)?;
 
     Ok(Json(ProfileBody { profile }))
 }
 
+
+/// Updates a user.
+/// Note from original author: Semantically this should be PATCH since it allows for partial updates
+async fn update_user(
+    app_state: State<AppState>,
+    auth_user: AuthUser,
+    Json(req): Json<UserBody<UpdateUser>>,
+) -> HttpResult<Json<UserBody<User>>> 
+{
+    if req.user == UpdateUser::default() {
+        // If there's no fields to update, these two routes are effectively identical.
+        return get_current_user(auth_user, app_state).await;
+    }
+
+    // WTB `Option::map_async()`
+    let password_hash = if let Some(password) = req.user.password {
+        Some(hash_password(password).await?)
+    } else {
+        None
+    };
+
+    let user = sqlx::query!(
+        // This is how we do optional updates of fields without needing a separate query for each.
+        // language=PostgreSQL
+        r#"
+            update "user"
+            set email = coalesce($1, "user".email),
+                username = coalesce($2, "user".username),
+                password_hash = coalesce($3, "user".password_hash),
+                bio = coalesce($4, "user".bio),
+                image = coalesce($5, "user".image)
+            where user_id = $6
+            returning email, username, bio, image
+        "#,
+        req.user.email,
+        req.user.username,
+        password_hash,
+        req.user.bio,
+        req.user.image,
+        auth_user.user_id
+    )
+    .fetch_one(&app_state.db)
+    .await
+    .on_constraint("user_username_key", |_| {
+        HttpError::unprocessable_entity([("username", "username taken")])
+    })
+    .on_constraint("user_email_key", |_| {
+        HttpError::unprocessable_entity([("email", "email taken")])
+    })?;
+
+    Ok(Json(UserBody {
+        user: User {
+            email: user.email,
+            token: auth_user.to_jwt(&app_state),
+            username: user.username,
+            bio: user.bio,
+            image: user.image,
+        },
+    }))
+}

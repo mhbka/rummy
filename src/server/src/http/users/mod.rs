@@ -1,6 +1,7 @@
 use axum::Router;
 use super::AppState;
 
+pub mod auth;
 pub mod types;
 pub mod routes;
 pub mod handlers;

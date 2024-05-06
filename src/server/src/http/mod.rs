@@ -8,42 +8,24 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+use tower_http::{
+    catch_panic::CatchPanicLayer, 
+    compression::CompressionLayer,
+    sensitive_headers::SetSensitiveHeadersLayer, 
+    timeout::TimeoutLayer, 
+    trace::TraceLayer
+};
 
-
-// Utility modules.
-
-/// Defines a common error type to use for all request handlers, compliant with the Realworld spec.
+/// Common error type that maps to HTTP errors, which can be returned as Responses
 mod error;
-
-/// Contains definitions for application-specific parameters to handler functions,
-/// such as `AuthUser` which checks for the `Authorization: Token <token>` header in the request,
-/// verifies `<token>` as a JWT and checks the signature,
-/// then deserializes the information it contains.
-// mod extractor;
+pub use error::{HttpError, ResultExt};
 
 /// A catch-all module for other common types in the API. Arguably, the `error` and `extractor`
 /// modules could have been children of this one, but that's more of a subjective decision.
 // mod types;
 
-// Modules introducing API routes. The names match the routes listed in the Realworld spec,
-// although the `articles` module also includes the `GET /api/tags` route because it touches
-// the `article` table.
-//
-// This is not the order they were written in; `rustfmt` auto-sorts them.
-// However, you should follow the order they were written in because some of the comments
-// are more stream-of-consciousness and assume you read them in a particular order.
-//
-// See `api_router()` below for the recommended order.
-// mod articles;
-// mod profiles;
+/// API routes
 mod users;
-
-pub use error::{HttpError, ResultExt};
-
-use tower_http::{
-    catch_panic::CatchPanicLayer, compression::CompressionLayer,
-    sensitive_headers::SetSensitiveHeadersLayer, timeout::TimeoutLayer, trace::TraceLayer,
-};
 
 /// The core state of the app.
 /// 
@@ -53,7 +35,6 @@ pub(crate) struct AppState {
     config: Arc<Config>,
     db: PgPool,
 }
-
 
 /// Sets up and starts the server.
 pub async fn serve(config: Config, db: PgPool) -> anyhow::Result<()> {
@@ -72,7 +53,6 @@ pub async fn serve(config: Config, db: PgPool) -> anyhow::Result<()> {
         .context("error running HTTP server")
 }
 
-
 /// Creates the main API router and combines all other routers.
 fn api_router(app_state: AppState) -> Router {
     // TODO: add other routers as merge() calls here
@@ -89,7 +69,6 @@ fn api_router(app_state: AppState) -> Router {
         ))
         .with_state(app_state)
 }
-
 
 /// Sends a shutdown signal to the server if ctrl+c is pressed.
 async fn shutdown_signal() {

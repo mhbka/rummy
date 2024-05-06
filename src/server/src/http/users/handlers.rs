@@ -6,7 +6,7 @@ use super::types::{
     User,
     NewUser
 };
-use super::util::hash_password;
+use super::util::{hash_password, verify_password};
 use super::AppState;
 
 
@@ -44,8 +44,9 @@ pub(super) async fn create_user(
     }))
 }
 
+
 // Attempts to log in a user.
-async fn login_user(
+pub(super) async fn login_user(
     app_state: State<AppState>,
     Json(req): Json<UserBody<LoginUser>>,
 ) -> HttpResult<Json<UserBody<User>>> {
@@ -77,8 +78,9 @@ async fn login_user(
     }))
 }
 
+
 /// Gets the current user.
-async fn get_current_user(
+pub(super) async fn get_current_user(
     app_state: State<AppState>,
     auth_user: AuthUser,
 ) -> HttpResult<Json<UserBody<User>>> 
@@ -105,5 +107,40 @@ async fn get_current_user(
             coins: user.coins
         },
     }))
+}
+
+
+// Get the profile of a user.
+// TODO: this should include game statistics and stuff; will handle that down the line
+pub(super) async fn get_user_profile(
+    ctx: State<AppState>,
+    Path(username): Path<String>,
+) -> Result<Json<ProfileBody>> {
+    unreachable!();
+
+    // Since our query columns directly match an existing struct definition,
+    // we can use `query_as!()` and save a bit of manual mapping.
+    let profile = sqlx::query_as!(
+        Profile,
+        r#"
+            select
+                username,
+                bio,
+                image,
+                exists(
+                    select 1 from follow 
+                    where followed_user_id = "user".user_id and following_user_id = $2
+                ) "following!" -- This tells SQLx that this column will never be null
+            from "user"
+            where username = $1
+        "#,
+        username,
+        maybe_auth_user.user_id()
+    )
+    .fetch_optional(&ctx.db)
+    .await?
+    .ok_or(Error::NotFound)?;
+
+    Ok(Json(ProfileBody { profile }))
 }
 

@@ -12,8 +12,8 @@ sqlx = { version = "0.7.4", features = ["runtime-tokio", "tls-native-tls", "post
 tokio = { version = "*", features = ["full"] }
 
 # Axum types
-tower = "0.4.13"
-tower-http = { version = "0.5.2"}
+tower = "*"
+tower-http = { version = "*", features = ["full"] }
 
 # user auth
 argon2 = "0.5.3"

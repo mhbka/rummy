@@ -14,5 +14,5 @@ pub(super) fn router() -> Router<AppState> {
         .route("/signup", post(create_user))
         .route("/login", post(login_user))
         .route("/update", get(get_current_user).put(update_user))
-        .route("/profiles/:username", get(get_user_profile))
+        .route("/profiles/:username", get(get_user_profile)) 
 }

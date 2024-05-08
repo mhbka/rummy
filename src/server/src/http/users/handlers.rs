@@ -1,4 +1,4 @@
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::Json;
 use crate::http::error::{HttpError, HttpResult};
 use super::types::{
@@ -113,7 +113,7 @@ pub(super) async fn get_current_user(
 pub(super) async fn get_user_profile(
     app_state: State<AppState>,
     Path(username): Path<String>,
-) -> Result<Json<ProfileBody>> 
+) -> HttpResult<Json<ProfileBody>> 
 {
     unreachable!();
 

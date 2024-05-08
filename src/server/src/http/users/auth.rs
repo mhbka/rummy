@@ -1,8 +1,10 @@
+
 use crate::http::error::{HttpError, HttpResult};
 use crate::http::AppState;
 use axum::body::Body;
-use axum::extract::{Extension, FromRequest, RequestParts};
+use axum::extract::{Extension, FromRef, FromRequest, FromRequestParts, RequestParts};
 use axum::http::header::AUTHORIZATION;
+use axum::http::request::Parts;
 use axum::http::HeaderValue;
 use async_trait::async_trait;
 use hmac::Hmac;
@@ -30,7 +32,7 @@ pub struct AuthUser {
 /// validate the token.
 ///
 /// This is in contrast to directly using `Option<AuthUser>`, which will be `None` if there
-/// is *any* error in deserializing, which isn't exactly what we want.
+/// is *any* HttpError in deserializing, which isn't exactly what we want.
 pub struct MaybeAuthUser(pub Option<AuthUser>);
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -122,7 +124,7 @@ impl AuthUser {
 
         if claims.exp < OffsetDateTime::now_utc().unix_timestamp() {
             log::debug!("token expired");
-            return Err(Error::Unauthorized);
+            return Err(HttpError::Unauthorized);
         }
 
         Ok(Self {
@@ -157,30 +159,59 @@ impl FromRequest for AuthUser {
         // Get the value of the `Authorization` header, if it was sent at all.
         let auth_header = req
             .headers()
-            .ok_or(Error::Unauthorized)?
+            .ok_or(HttpError::Unauthorized)?
             .get(AUTHORIZATION)
-            .ok_or(Error::Unauthorized)?;
+            .ok_or(HttpError::Unauthorized)?;
 
         Self::from_authorization(&state, auth_header)
     }
 }
 
+// tower-http has a `RequireAuthorizationLayer` but it's useless for practical applications,
+// as it only supports matching Basic or Bearer auth with credentials you provide it.
+//
+// There's the `::custom()` constructor to provide your own validator but it basically
+// requires parsing the `Authorization` header by-hand anyway so you really don't get anything
+// out of it that you couldn't write your own middleware for, except with a bunch of extra
+// boilerplate.
 #[async_trait]
-impl FromRequest for MaybeAuthUser {
+impl<S> FromRequestParts<S> for AuthUser
+where
+    S: Send + Sync,
+    AppState: FromRef<S>,
+{
     type Rejection = HttpError;
 
-    async fn from_request(req: &mut RequestParts<Body>) -> Result<Self, Self::Rejection> {
-        let state: Extension<AppState> = Extension::from_request(req)
-            .await
-            .expect("BUG: AppState was not added as an extension");
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let ctx: AppState = AppState::from_ref(state);
+
+        // Get the value of the `Authorization` header, if it was sent at all.
+        let auth_header = parts
+            .headers
+            .get(AUTHORIZATION)
+            .ok_or(HttpError::Unauthorized)?;
+
+        Self::from_authorization(&ctx, auth_header)
+    }
+}
+
+#[async_trait]
+impl<S> FromRequestParts<S> for MaybeAuthUser
+where
+    S: Send + Sync,
+    AppState: FromRef<S>,
+{
+    type Rejection = HttpError;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let ctx: AppState = AppState::from_ref(state);
 
         Ok(Self(
             // Get the value of the `Authorization` header, if it was sent at all.
-            req.headers()
-                .and_then(|headers| {
-                    let auth_header = headers.get(AUTHORIZATION)?;
-                    Some(AuthUser::from_authorization(&state, auth_header))
-                })
+            parts
+                .headers
+                .get(AUTHORIZATION)
+                .map(|auth_header| AuthUser::from_authorization(&ctx, auth_header))
                 .transpose()?,
         ))
     }

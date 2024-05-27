@@ -1,8 +1,7 @@
 
-pub mod cards;
+//pub mod cards;
 pub mod game;
-pub mod player;
-pub mod testing;
+//pub mod player;
 
 fn main() {
     println!("Hello, world!");

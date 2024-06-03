@@ -108,8 +108,10 @@ impl Meldable for Run {
         // TODO: any way to not do this?
         let backup_cards = cards.clone();
 
+        cards.sort();
+
         // TODO: do I just assume that every card is tied to the same deck?
-        let deck_config = cards[0].deck_config;
+        let deck_config = cards[0].deck_config.clone();
 
         let mut wildcards = match deck_config.wildcard_rank {
             Some(wildcard_rank) => {
@@ -120,7 +122,6 @@ impl Meldable for Run {
             }
         };
         
-        cards.sort();
 
         // Check that each card is same suit and +1 rank from previous card (or previous card is wildcard).
         // If not, try to insert a wildcard; if we have none, return Error with the backup cards.
@@ -135,8 +136,9 @@ impl Meldable for Run {
                         continue;
                     }
                     else if wildcards.len() > 0 {
-                        let &wildcard = wildcards.pop().unwrap();
-                        cards.insert(i, wildcard);
+                        let wildcard = wildcards.pop();
+                        let wildcard = wildcard.unwrap();
+                        cards.insert(i, wildcard.clone());
                         continue;
                     }
                 } 

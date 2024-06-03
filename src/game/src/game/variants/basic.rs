@@ -6,14 +6,15 @@ use super::super::{
 };
 
 pub(crate) struct BasicRummy<P: GamePhase> {
+    phase: P,
     players: Vec<Player>,
     deck: Deck
 }
 
 impl DrawActions for BasicRummy<DrawPhase> {
-    type SelfInPlayPhase;
+    type SelfInPlayPhase = BasicRummy<PlayPhase>;
 
-    type SelfInRoundEndPhase;
+    type SelfInRoundEndPhase = BasicRummy<RoundEndPhase>;
 
     fn draw_stock(&mut self) -> Result<(), String> {
         todo!()
@@ -29,9 +30,9 @@ impl DrawActions for BasicRummy<DrawPhase> {
 }
 
 impl PlayActions for BasicRummy<PlayPhase> {
-    type SelfInDiscardPhase;
+    type SelfInDiscardPhase = BasicRummy<DiscardPhase>;
 
-    type SelfInRoundEndPhase;
+    type SelfInRoundEndPhase = BasicRummy<RoundEndPhase>;
 
     fn form_meld(&mut self, card_indices: Vec<usize>) -> Result<(), String> {
         todo!()
@@ -47,9 +48,9 @@ impl PlayActions for BasicRummy<PlayPhase> {
 }
 
 impl DiscardActions for BasicRummy<DiscardPhase> {
-    type SelfInDrawPhase;
+    type SelfInDrawPhase = BasicRummy<DrawPhase>;
 
-    type SelfInRoundEndPhase;
+    type SelfInRoundEndPhase = BasicRummy<RoundEndPhase>;
 
     fn discard(&mut self, card_i: usize) -> Result<(), String> {
         todo!()

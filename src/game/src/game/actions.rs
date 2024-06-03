@@ -6,41 +6,15 @@ use super::phases::{
     DiscardPhase,
     RoundEndPhase,
     GameEndPhase,
-    HasGamePhase
 };
 
 
-/// The result of a game phase transition:
-/// - Next: A `Game` with gamephase `P`, the logical next phase (ie Draw -> Play, Play -> Discard).
-/// - End: A `Game` with gamephase `RoundEndPhase` (ie, the round ends due to some game condition).
-/// 
-/// **NOTE**: Currently this requires a user to fill in `P1`, but when `G` is `Self`,
-/// `P1` is already implicitly defined, which makes the API here confusing.
-/// 
-/// TODO: work out how to remove the need for P1 to be defined
-pub(crate) enum TransitionResult<G, P1, P2>
-where
-    G: HasGamePhase<P1>,
-    P1: GamePhase,
-    P2: GamePhase
-{
-    Next(G::SelfHasGamePhase<P2>),
-    End(G::SelfHasGamePhase<RoundEndPhase>),
-}
-
-
-/// A supertrait encompassing all actions.
-/// TODO: define trait bound on associated type here? or in HasGamePhase
-pub(crate) trait GameActions:
-    DrawActions
-    + PlayActions 
-    + DiscardActions
-    + RoundEndActions
-    + GameEndActions
-{}
-
 /// Trait for actions during DrawPhase.
-pub(crate) trait DrawActions where Self: HasGamePhase<DrawPhase> + Sized {
+pub(crate) trait DrawActions {
+    // `Self` in `PlayPhase` and `RoundEndPhase`.
+    type SelfInPlayPhase: PlayActions;
+    type SelfInRoundEndPhase: RoundEndActions;
+ 
     /// Draw from the stock for the current player.
     fn draw_stock(&mut self) -> Result<(), String>;
 
@@ -51,11 +25,15 @@ pub(crate) trait DrawActions where Self: HasGamePhase<DrawPhase> + Sized {
     /// 
     /// **NOTE**: Ensure any required actions are taken by the time/during this function call,
     /// as it is infallible.
-    fn to_play(self) -> TransitionResult<Self, DrawPhase, PlayPhase>;
+    fn to_play(self) -> Result<Self::SelfInPlayPhase, Self::SelfInRoundEndPhase>;
 }
 
 /// Trait for actions during PlayPhase.
-pub(crate) trait PlayActions where Self: HasGamePhase<PlayPhase> + Sized {
+pub(crate) trait PlayActions {
+    // `Self` in `DiscardPhase` and `RoundEndPhase`.
+    type SelfInDiscardPhase: DiscardActions;
+    type SelfInRoundEndPhase: RoundEndActions;
+
     /// Form a meld from a Vec of indices,
     /// referring to cards in the current player's hand.
     fn form_meld(&mut self, card_indices: Vec<usize>) -> Result<(), String>;
@@ -68,11 +46,15 @@ pub(crate) trait PlayActions where Self: HasGamePhase<PlayPhase> + Sized {
     /// 
     /// **NOTE**: Ensure any required actions are taken by the time/during this function call,
     /// as it is infallible.
-    fn to_discard(self) -> TransitionResult<Self, PlayPhase, DiscardPhase>;
+    fn to_discard(self) -> Result<Self::SelfInDiscardPhase, Self::SelfInRoundEndPhase>;
 }
 
 /// Trait for actions during DiscardPhase.
-pub(crate) trait DiscardActions where Self: HasGamePhase<DiscardPhase> + Sized {
+pub(crate) trait DiscardActions {
+    // `Self` in `PlayPhase` and `RoundEndPhase`.
+    type SelfInDrawPhase: DrawActions;
+    type SelfInRoundEndPhase: RoundEndActions;
+
     /// Discard a card for current player at given index in their hand.
     fn discard(&mut self, card_i: usize) -> Result<(), String>;
 
@@ -81,11 +63,14 @@ pub(crate) trait DiscardActions where Self: HasGamePhase<DiscardPhase> + Sized {
     /// 
     /// **NOTE**: Ensure a card is automatically discarded if it hasn't been when this is called,
     /// as the transition is infallible.
-    fn to_next_player(self) -> TransitionResult<Self, DiscardPhase, DrawPhase>;
+    fn to_next_player(self) -> Result<Self::SelfInDrawPhase, Self::SelfInRoundEndPhase>;
 }
 
 /// Trait for actions during RoundEndPhase.
-pub(crate) trait RoundEndActions where Self: HasGamePhase<RoundEndPhase> + Sized {
+pub(crate) trait RoundEndActions {
+    // `Self` in `PlayPhase` and `RoundEndPhase`.
+    type SelfInPlayPhase: PlayActions;
+
     /// Calculate the round's score.
     fn calculate_score(&mut self) -> Result<(), String>;
 
@@ -94,16 +79,16 @@ pub(crate) trait RoundEndActions where Self: HasGamePhase<RoundEndPhase> + Sized
     /// 
     /// **NOTE**: Ensure that score is automatically calculated if it hasn't been when this is called,
     /// as the transition is infallible.
-    fn to_next_round(self) -> TransitionResult<Self, RoundEndPhase, DrawPhase>;
+    fn to_next_round(self) -> Self::SelfInPlayPhase;
 }
 
 /// Trait for actions during GameEndPhase.
-pub(crate) trait GameEndActions where Self: HasGamePhase<GameEndPhase> {
+pub(crate) trait GameEndActions {
     // TODO: what makes sense here?
 }
 
 /// Trait for actions during any playable phase.
-pub(crate) trait PlayableActions<P: PlayablePhase + GamePhase> where Self: HasGamePhase<P> {
+pub(crate) trait PlayableActions {
     /// Add a player to the game.
     /// If an index is given, add them at that index in `players`;
     /// Else, add them at the last position of `players`.

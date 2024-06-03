@@ -1,9 +1,5 @@
-use super::actions::DrawActions;
-
 /// Trait indicating a game phase.
-pub(crate) trait GamePhase {
-    type NextPhase: GamePhase;
-}
+pub(crate) trait GamePhase {}
 
 /// Trait indicating a phase where the game can still be played.
 pub(crate) trait PlayablePhase {}
@@ -26,32 +22,14 @@ pub(crate) struct GameEndPhase {
 }
 
 // Mark these as GamePhases.
-impl GamePhase for DrawPhase {
-    type NextPhase = PlayPhase;
-}
-impl GamePhase for PlayPhase {
-    type NextPhase = DiscardPhase;
-}
-impl GamePhase for DiscardPhase {
-    type NextPhase = DrawPhase;
-}
-impl GamePhase for RoundEndPhase {
-    type NextPhase = DrawPhase;
-}
-impl GamePhase for GameEndPhase {
-    type NextPhase = GameEndPhase;
-}
+impl GamePhase for DrawPhase {}
+impl GamePhase for PlayPhase {}
+impl GamePhase for DiscardPhase {}
+impl GamePhase for RoundEndPhase {}
+impl GamePhase for GameEndPhase {}
 
 // Mark these as PlayablePhases (for PlayableActions).
 impl PlayablePhase for DrawPhase {}
 impl PlayablePhase for PlayPhase {}
 impl PlayablePhase for DiscardPhase {}
 impl PlayablePhase for RoundEndPhase {}
-
-pub(crate) trait HasGamePhase<P1: GamePhase> {
-    type SelfHasGamePhase<P2: GamePhase>: 
-        HasGamePhase<P2, SelfHasGamePhase<P1> = Self>
-    where
-        Self::SelfHasGamePhase<DrawPhase>: DrawActions
-        ;
-}

@@ -24,7 +24,7 @@ pub struct DeckConfig {
 /// - **stock**, face-down cards that can be drawn at the start of each turn
 /// - **discard pile**, discarded cards, which can also be drawn
 pub struct Deck {
-    config: DeckConfig,
+    config: Rc<DeckConfig>,
     stock: Vec<Card>,
     discard_pile: Vec<Card>
 }
@@ -42,22 +42,28 @@ impl Deck {
             return Err("Cannot use Joker and specify a wildcard in a Deck".to_owned());
         }
 
+        let config = Rc::new(config);
+
         let mut deck = Deck {
-            config,
+            config: config.clone(),
             stock: Vec::new(),
             discard_pile: Vec::new()
         };
 
-        for i in 0..config.pack_count {
+        for _ in 0..config.pack_count {
             for suit in Suit::iter() {
                 if suit == Suit::Joker { continue; }
                 for rank in Rank::iter() {
                     if rank == Rank::Joker { continue; }
-                    deck.stock.push(Card { rank, suit, deck: Rc::new(deck) });
+                    deck.stock.push(Card { rank, suit, deck_config: config.clone() });
                 }
             }
             if config.use_joker {
-                deck.stock.push(Card { rank: Rank::Joker, suit: Suit::Joker, deck: Rc::new(deck) });
+                deck.stock.push(Card { 
+                    rank: Rank::Joker, 
+                    suit: Suit::Joker, 
+                    deck_config: config.clone() 
+                });
             }
         }
 
@@ -80,6 +86,15 @@ impl Deck {
         };
         
         Ok(cards)
+    }
+
+    /// Draw a specific card from the deck stock.
+    /// 
+    /// If the card doesn't exist in the stock, return `Err`.
+    /// 
+    /// If the deck is empty after drawing, shuffle the discarded cards back into it.
+    pub(crate) fn draw_specific(&mut self, rank: Rank, suit: Suit) -> Result<Card, String> {
+        todo!()
     }
 
     /// See the top card of the discard pile, if there is one.
@@ -143,11 +158,5 @@ impl Deck {
     /// Get a reference to the deck discard pile.
     pub(crate) fn get_discard_pile(&self) -> &Vec<Card> {
         &self.discard_pile
-    }
-}
-
-impl Default for Deck {
-    fn default() -> Self {
-        todo!()
     }
 }

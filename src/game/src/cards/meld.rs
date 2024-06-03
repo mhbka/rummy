@@ -38,8 +38,8 @@ pub struct Set {
 
 impl Meldable for Set {
     fn new(mut cards: Vec<Card>) -> Result<Self, Vec<Card>> {
-        // TODO: do I just assume that every card is tied to the same deck?
-        match cards[0].deck.get_config().wildcard_rank {
+        // assuming every card is tied to the same `deck_config`
+        match cards[0].deck_config.wildcard_rank { 
             // every card has same rank, or is a wildcard.
             Some(wildcard_rank) => {
                 let mut set_rank: Option<Rank> = None;
@@ -60,7 +60,7 @@ impl Meldable for Set {
                     if let Some(set_rank) = set_rank {
                         return Ok(Set{set_rank, cards});
                     }
-                    else { // means no non-wildcard, which we don't want to allow
+                    else { // every card is a wildcard, which is not a valid set.
                         return Err(cards);
                     }
                 }
@@ -69,8 +69,8 @@ impl Meldable for Set {
                 }
                 
             },
-            // every card has same rank.
-            None => {
+           
+            None => { // every card has same rank.
                 if cards
                     .iter()
                     .all(|card| card.rank == cards[0].rank) {
@@ -87,7 +87,7 @@ impl Meldable for Set {
         if card.rank != self.set_rank { 
             return Err(card); 
         }
-        else if let Some(wildcard_rank) = card.deck.get_config().wildcard_rank {
+        else if let Some(wildcard_rank) = card.deck_config.wildcard_rank {
             if card.rank != wildcard_rank {
                 return Err(card);
             }
@@ -109,7 +109,7 @@ impl Meldable for Run {
         let backup_cards = cards.clone();
 
         // TODO: do I just assume that every card is tied to the same deck?
-        let deck_config = cards[0].deck.get_config();
+        let deck_config = cards[0].deck_config;
 
         let mut wildcards = match deck_config.wildcard_rank {
             Some(wildcard_rank) => {

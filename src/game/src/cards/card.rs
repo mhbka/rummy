@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use super::{deck::Deck, suit_rank::{Rank, Suit}};
+use super::{deck::{Deck, DeckConfig}, suit_rank::{Rank, Suit}};
 use std::{rc::Rc, cmp::Ordering};
 
 /// A card.
@@ -11,7 +11,7 @@ pub struct Card {
     pub(crate) suit: Suit,
 
     #[serde(skip_serializing, skip_deserializing)]
-    pub(crate) deck: Rc<Deck> 
+    pub(crate) deck_config: Rc<DeckConfig> 
     // TODO: make this Option so we can default it to None for serde
     // TODO: then figure out how to Rc to the deck upon deserializing
 }
@@ -21,11 +21,11 @@ impl Card {
     ///  
     /// Typically this is done inside a `Deck` instantiation,
     /// as the card depends on the deck's configuration for comparisons.
-    pub(super) fn new(deck: Rc<Deck>, rank: Rank, suit: Suit) -> Self {
+    pub(super) fn new(rank: Rank, suit: Suit, deck_config: Rc<DeckConfig>) -> Self {
         Card {
             rank,
             suit,
-            deck
+            deck_config
         }
     }
 
@@ -62,11 +62,12 @@ impl Ord for Card {
         }
         else {
             let max_rank = Rank::King as u8;
-            let highest_rank = if self.deck.get_config().high_rank.is_none() { 
-                max_rank 
-            } else {
-                self.deck.get_config().high_rank.unwrap() as u8
-            };
+            let highest_rank = 
+                if self.deck_config.high_rank.is_none() { 
+                    max_rank 
+                } else {
+                    self.deck_config.high_rank.unwrap() as u8
+                };
             let rank_offset = max_rank - highest_rank;
 
             let self_rank = (self.rank as u8 + rank_offset) % (max_rank+1);

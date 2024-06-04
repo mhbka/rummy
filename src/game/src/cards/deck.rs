@@ -10,6 +10,7 @@ use strum::IntoEnumIterator;
 /// - `use_joker`: Whether to add Jokers and use them as wildcard (2 per pack)
 /// - `high_rank`: Whether to override the highest rank (default being King)
 /// - `wildcard_rank`: Whether to have a wildcard rank (mutually exclusive with `use_joker`)
+#[derive(Default)]
 pub struct DeckConfig {
     pub pack_count: usize,
     pub use_joker: bool,

@@ -12,7 +12,7 @@ pub(crate) struct PlayPhase {
     pub(super) play_count: usize
 }
 pub(crate) struct DiscardPhase {
-    pub(super) has_discarded: usize
+    pub(super) has_discarded: bool
 }
 pub(crate) struct RoundEndPhase {
     pub(super) has_scored_round: bool
@@ -33,3 +33,4 @@ impl PlayablePhase for DrawPhase {}
 impl PlayablePhase for PlayPhase {}
 impl PlayablePhase for DiscardPhase {}
 impl PlayablePhase for RoundEndPhase {}
+

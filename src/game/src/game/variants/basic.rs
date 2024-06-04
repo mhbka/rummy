@@ -73,7 +73,8 @@ impl PlayActions for BasicRummy<PlayPhase> {
     fn form_meld(mut self, card_indices: Vec<usize>) 
     -> TransitionResult<Self::SelfInDiscardPhase, Self::SelfInRoundEndPhase, Self, String>
     {
-        todo!()
+        let player = &mut self.state.players[self.state.cur_player];
+
     }
 
     fn layoff_card(mut self, card_i: usize, target_player_i: usize, target_meld_i: usize)
@@ -147,7 +148,7 @@ impl DiscardActions for BasicRummy<DiscardPhase> {
             match self.discard(0) {
                 TransitionResult::Next(s) => self = s,
                 TransitionResult::End(e) => return TransitionResult::End(e),
-                TransitionResult::Error(err) => unreachable!() // discarding first card should never error
+                TransitionResult::Error(_) => unreachable!() // discarding first card should never error
             }
         }
 

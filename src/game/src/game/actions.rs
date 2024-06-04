@@ -94,9 +94,10 @@ pub(crate) trait DiscardActions: Sized {
     /// Transition to the next state by going to the next active player
     /// where they can draw.
     /// 
-    /// **NOTE**: Ensure any required actions are taken by the time/during this call,
-    /// as the transition is infallible.
-    fn to_next_player(self) -> Self::SelfInDrawPhase;
+    /// **NOTE**: As this function calls `discard` automatically if it hasn't been called yet,
+    /// it also returns a `TransitionResult`.
+    fn to_next_player(self)
+        -> TransitionResult<Self::SelfInDrawPhase, Self::SelfInRoundEndPhase, Self, String>;
 }
 
 /// Trait for actions during RoundEndPhase.
@@ -129,8 +130,10 @@ pub(crate) trait PlayableActions: Sized {
     type SelfInDrawPhase: DrawActions;
 
     /// Add a player to the game.
-    /// If an index is given, add them at that index in `players`;
-    /// Else, add them at the last position of `players`.
+    /// 
+    /// If `index` is given, add them at that index in `players`;
+    /// else, or if `index` is greater than no. of players,
+    /// add them at the last position of `players`.
     /// 
     /// If the player was added while a round is ongoing, add them as inactive.
     fn add_player(&mut self, player_id: usize, index: Option<usize>);
@@ -146,4 +149,10 @@ pub(crate) trait PlayableActions: Sized {
     /// Sets the current player as having quit, advancing to the next player
     /// and going to `DrawPhase`.
     fn quit_current_player(self) -> Self::SelfInDrawPhase;
+
+    /// Moves the specified player's hand's card at `old_pos` to `new_pos`.
+    /// 
+    /// If `player_i` or `old_pos` is invalid, an `Err` is returned.
+    /// If `new_pos` is greater than the player's hand size, the card is moved to the rightmost position.
+    fn move_card_in_hand(&mut self, player_i: usize, old_pos: usize, new_pos: usize) -> Result<(), String>;
 }

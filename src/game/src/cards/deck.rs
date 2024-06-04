@@ -10,7 +10,6 @@ use strum::IntoEnumIterator;
 /// - `use_joker`: Whether to add Jokers and use them as wildcard (2 per pack)
 /// - `high_rank`: Whether to override the highest rank (default being King)
 /// - `wildcard_rank`: Whether to have a wildcard rank (mutually exclusive with `use_joker`)
-#[derive(Default)]
 pub struct DeckConfig {
     pub pack_count: usize,
     pub use_joker: bool,
@@ -71,21 +70,17 @@ impl Deck {
         Ok(deck)
     }
 
-    /// Draw a chosen amount of cards (usually 1) from the deck stock.
+    /// Draw `amount` cards from the deck stock.
     /// 
-    /// If the amount is greater than the stock's size, return `Err`.
+    /// If `amount` is greater than the stock size, `Err` is returned.
     /// 
-    /// If the deck is empty after drawing, shuffle the discarded cards back into it.
+    /// To replenish the stock, one can call `shuffle_discarded` or `turnover_discarded`.
     pub(crate) fn draw(&mut self, amount: usize) -> Result<Vec<Card>, String> {
         if amount > self.stock.len() {
             return Err(format!("Draw amount ({amount}) greater than stock size ({})", self.stock.len()));
         }
 
         let cards = self.stock.split_off(self.stock.len() - amount);
-        if self.stock.len() == 0 {
-            self.reset_deck();
-        };
-        
         Ok(cards)
     }
 
@@ -95,7 +90,14 @@ impl Deck {
     /// 
     /// If the deck is empty after drawing, shuffle the discarded cards back into it.
     pub(crate) fn draw_specific(&mut self, rank: Rank, suit: Suit) -> Result<Card, String> {
-        todo!()
+        for i in 0..self.stock.len() {
+            let card = &self.stock[i];
+            if card.rank == rank && card.suit == suit {
+                return Ok(self.stock.remove(i));
+            }
+        }
+
+        Err(format!("No card ({suit:?}, {rank:?}) in the stock"))
     }
 
     /// See the top card of the discard pile, if there is one.
@@ -135,29 +137,32 @@ impl Deck {
     }
 
     /// Reset the stock by moving the discard pile into it and shuffling.
-    /// 
-    /// Typically called when stock is emptied during gameplay,
-    /// or when starting a new round (and all player cards have been discarded).
-    pub(crate) fn reset_deck(&mut self) {
+    pub(crate) fn shuffle_discarded(&mut self) {
         self.stock.append(&mut self.discard_pile);
         self.stock.shuffle(&mut rand::thread_rng());
     }
+
+    /// Turn over the discard pile to form the new stock, without shuffling.
+    pub(crate) fn turnover_discarded(&mut self) {
+        self.stock.append(&mut self.discard_pile);
+        self.stock.reverse();
+    }
 }
 
-/// Reference getters
+
 impl Deck {
     /// Get a reference to the deck configuration.
-    pub(crate) fn get_config(&self) -> &DeckConfig {
+    pub(crate) fn config(&self) -> &DeckConfig {
         &self.config
     }
 
     /// Get a reference to the deck stock.
-    pub(crate) fn get_cards(&self) -> &Vec<Card> {
+    pub(crate) fn stock(&self) -> &Vec<Card> {
         &self.stock
     }
 
     /// Get a reference to the deck discard pile.
-    pub(crate) fn get_discard_pile(&self) -> &Vec<Card> {
+    pub(crate) fn discard_pile(&self) -> &Vec<Card> {
         &self.discard_pile
     }
 }

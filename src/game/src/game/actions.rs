@@ -19,7 +19,14 @@ pub(crate) trait DrawActions {
     fn draw_stock(&mut self) -> Result<(), String>;
 
     /// Draw from the discard pile for the current player.
-    fn draw_discard_pile(&mut self) -> Result<(), String>;
+    /// 
+    /// `amount` is the number of cards to draw, where `None` means draw the entire discard pile.
+    /// 
+    /// This is provided as some variants of Rummy (in particular [Basic Rummy](https://en.wikipedia.org/wiki/Rummy))
+    /// may allow the player to choose how many discard cards to draw.
+    /// 
+    /// If a variant doesn't allow this, the implementation can just ignore `amount` and always use a default value.
+    fn draw_discard_pile(&mut self, amount: Option<usize>) -> Result<(), String>;
 
     /// Transition to next state where the current player can make plays.
     /// 
@@ -88,14 +95,25 @@ pub(crate) trait GameEndActions {
 }
 
 /// Trait for actions during any playable phase.
-pub(crate) trait PlayableActions {
+pub(crate) trait PlayableActions: Sized {
+    type SelfInRoundEndPhase: RoundEndActions;
+    type SelfInDrawPhase: DrawActions;
+
     /// Add a player to the game.
     /// If an index is given, add them at that index in `players`;
     /// Else, add them at the last position of `players`.
     /// 
-    /// If the player was added in the middle of a round, add them as inactive.
+    /// If the player was added while a round is ongoing, add them as inactive.
     fn add_player(&mut self, player_id: usize, index: Option<usize>);
 
-    /// Sets a player as having quit.
-    fn quit_player(&mut self, player_i: usize) -> Result<(), String>;
+    /// Sets a (non-current) player as having quit.
+    /// If only 1 active player is left, ends the round.
+    /// 
+    /// Nothing happens if `player_i` is the current player.
+    /// To quit the current player, use `quit_current_player` instead.
+    fn quit_player(self, player_i: usize) -> Result<Self, Self::SelfInRoundEndPhase>;
+
+    /// Sets the current player as having quit, advancing to the next player
+    /// and going to `DrawPhase`.
+    fn quit_current_player(self) -> Self::SelfInDrawPhase;
 }

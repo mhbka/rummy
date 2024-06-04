@@ -9,7 +9,7 @@ pub(crate) struct DrawPhase {
     pub(super) has_drawn: bool
 }
 pub(crate) struct PlayPhase {
-    pub(super) move_count: usize
+    pub(super) play_count: usize
 }
 pub(crate) struct DiscardPhase {
     pub(super) has_discarded: usize

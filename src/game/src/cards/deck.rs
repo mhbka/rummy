@@ -25,7 +25,6 @@ pub struct DeckConfig {
 }
 
 // TODO: verify cards belong to the deck before adding to discard pile
-// TODO: some variants may allow see multiple discarded cards; possible functionality for that
 
 /// The deck, consisting of the:
 /// - **stock**, face-down cards that can be drawn at the start of each turn
@@ -37,10 +36,9 @@ pub struct Deck {
 }
 
 impl Deck {
-    /// Creates a new deck following settings in `config`.
+    /// Creates a new deck following settings in `config` and shuffles it.
     /// 
     /// **Note**: Returns `Err` if `pack_count` < 1, or `use_joker` is true while `wildcard_rank` isn't `None`.
-    /// TODO: why can't I make this pub(crate) without angering basic.rs?
     pub(crate) fn new(config: DeckConfig) -> Result<Self, String> {
         if config.pack_count < 1 {
             return Err("Pack count < 1 while instantiating a Deck".to_owned());
@@ -63,7 +61,7 @@ impl Deck {
         Ok(deck)
     }
 
-    /// Reset the cards by creating a new deck.
+    /// Reset the cards by creating a new deck and shuffling it.
     /// 
     /// **NOTE**: This refers to the current `DeckConfig`; if it has changed,
     /// the cards generated will be different from what was initially generated.
@@ -146,7 +144,7 @@ impl Deck {
         self.stock.shuffle(&mut rand::thread_rng());
     }
 
-    /// Turn over the discard pile to form the new stock, without shuffling.
+    /// Reset the stock by moving the discard pile into it and turning it over.
     pub(crate) fn turnover_discarded(&mut self) {
         self.stock.append(&mut self.discard_pile);
         self.stock.reverse();

@@ -15,6 +15,26 @@ use super::super::{
     actions::*,
     phases::*
 };
+use phf::phf_map;
+
+
+/// Get the number of cards to deal each player at the start of a round,
+/// given number of players and number of decks.
+/// 
+/// Follows the ruling [here](https://en.wikipedia.org/wiki/Rummy).
+const fn get_cards_to_deal(num_players: usize, num_decks: usize) -> usize {
+    match (num_players, num_decks) {
+        (2, 1) => 10,
+        (3, 1) => 7,
+        (3, 2) => 10,
+        (4..=5, 1) => 7,
+        (4..=7, 2) => 10,
+        (6, _) => 6,
+        (7, _) => 6,
+        _ => panic!("Invalid number of players or decks"),
+    }
+}
+
 
 struct BasicRummyState {
     deck: Deck,
@@ -265,12 +285,27 @@ impl RoundEndActions for BasicRummy<RoundEndPhase> {
         let mut state = self.state;
         state.deck.reset();
 
+        let mut num_active_players = 0;
         for player in &mut state.players {
             player.melds.clear();
             player.cards.clear();
             if player.joined_in_round == state.cur_round {
                 player.active = true;
             }
+            if player.active {
+                num_active_players += 1;
+            }
+        }
+
+        for player in &mut state.players {
+            player.cards.append(
+                state.deck.draw(
+                    get_cards_to_deal(
+                        num_active_players, 
+                        state.deck.config().pack_count
+                    )
+                )
+            )
         }
 
         state.cur_round += 1;

@@ -10,7 +10,7 @@ use super::phases::{
 
 
 /// A result for methods which may branch into different game phases:
-/// - `Next`: Transition to the logical next phase
+/// - `Next`: Transition to the intended next phase
 /// - `End`: Transition to `RoundEndPhase` (ie, if the round ends due to some condition)
 /// - `Error`: The transition fails due to some error, returning a tuple of `S` (the current state) and an error type `Err`
 pub enum TransitionResult <N, E: RoundEndActions, S, Err> {

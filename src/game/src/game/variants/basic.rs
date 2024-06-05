@@ -99,7 +99,7 @@ impl PlayActions for BasicRummy<PlayPhase> {
             if i > player.cards.len() {
                 return TransitionResult::Error((
                     self,
-                    format!("An index in card_indices ({i}) is greater than player's hand size")
+                    format!("An index in card_indices ({i}) is greater than player's hand's size")
                 ))
             }
             else {
@@ -107,11 +107,8 @@ impl PlayActions for BasicRummy<PlayPhase> {
             }
         }
 
-        if let Ok(meld) = Set::new(&mut meld_cards) {
-            player.melds.push(Meld::Set(meld));
-        }
-        else if let Ok(meld) = Run::new(&mut meld_cards) {
-            player.melds.push(Meld::Run(meld));
+        if let Ok(meld) = Meld::new(&mut meld_cards) {
+            player.melds.push(meld);
         }
         else {
             return TransitionResult::Error((

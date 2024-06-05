@@ -251,12 +251,34 @@ impl DiscardActions for BasicRummy<DiscardPhase> {
 impl RoundEndActions for BasicRummy<RoundEndPhase> {
     type SelfInDrawPhase = BasicRummy<DrawPhase>;
 
-    fn calculate_score(&mut self) -> Result<(), String> {
+    fn calculate_score(&mut self) {
+        self.phase.has_scored_round = true;
+
         todo!()
     }
 
-    fn to_next_round(self) -> Self::SelfInDrawPhase {
-        todo!()
+    fn to_next_round(mut self) -> Self::SelfInDrawPhase {
+        if !self.phase.has_scored_round {
+            self.calculate_score();
+        }
+
+        let mut state = self.state;
+        state.deck.reset();
+
+        for player in &mut state.players {
+            player.melds.clear();
+            player.cards.clear();
+            if player.joined_in_round == state.cur_round {
+                player.active = true;
+            }
+        }
+
+        state.cur_round += 1;
+
+        BasicRummy {
+            phase: DrawPhase { has_drawn: false },
+            state
+        }
     }
 }
 

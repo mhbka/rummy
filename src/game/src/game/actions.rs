@@ -106,7 +106,7 @@ pub(crate) trait RoundEndActions {
     type SelfInDrawPhase: DrawActions;
 
     /// Calculate the round's score.
-    fn calculate_score(&mut self) -> Result<(), String>;
+    fn calculate_score(&mut self);
 
     /// Start a new round. Typically includes:
     /// - Incrementing the round number

@@ -20,13 +20,4 @@ impl Player {
             joined_in_round
         }
     }
-
-    /// Resets a player's state.
-    /// 
-    /// **Note**: This destroys their hand/meld cards, 
-    /// so a new deck should be created.
-    pub(crate) fn reset(&mut self) {
-        self.cards.clear();
-        self.melds.clear();
-    }
 }

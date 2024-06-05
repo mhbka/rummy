@@ -2,16 +2,22 @@ use std::rc::Rc;
 
 use super::card::Card;
 use super::suit_rank::{Rank, Suit};
-use rand::seq::SliceRandom;
 use strum::IntoEnumIterator;
+use rand::{
+    SeedableRng,
+    seq::SliceRandom,
+    rngs::StdRng
+};
 
 /// Configurable parameters for a deck:
+/// - `shuffle_seed`: Optional seed for deterministically shuffling the deck
 /// - `pack_count`: Number of card packs to include in the deck
 /// - `use_joker`: Whether to add Jokers and use them as wildcard (2 per pack)
 /// - `high_rank`: Whether to override the highest rank (default being King)
 /// - `wildcard_rank`: Whether to have a wildcard rank (mutually exclusive with `use_joker`)
 #[derive(Default)]
 pub struct DeckConfig {
+    pub shuffle_seed: Option<u64>,
     pub pack_count: usize,
     pub use_joker: bool,
     pub high_rank: Option<Rank>,
@@ -51,24 +57,21 @@ impl Deck {
             discard_pile: Vec::new()
         };
 
-        for _ in 0..config.pack_count {
-            for suit in Suit::iter() {
-                if suit == Suit::Joker { continue; }
-                for rank in Rank::iter() {
-                    if rank == Rank::Joker { continue; }
-                    deck.stock.push(Card { rank, suit, deck_config: config.clone() });
-                }
-            }
-            if config.use_joker {
-                deck.stock.push(Card { 
-                    rank: Rank::Joker, 
-                    suit: Suit::Joker, 
-                    deck_config: config.clone() 
-                });
-            }
-        }
+        Deck::generate_cards(&mut deck.stock, &config);
+        Deck::shuffle_cards(&mut deck.stock, &config);
 
         Ok(deck)
+    }
+
+    /// Reset the cards by creating a new deck.
+    /// 
+    /// **NOTE**: This refers to the current `DeckConfig`; if it has changed,
+    /// the cards generated will be different from what was initially generated.
+    pub(crate) fn reset(&mut self) {
+        self.stock.clear();
+        self.discard_pile.clear();
+        Deck::generate_cards(&mut self.stock, &self.config);
+        Deck::shuffle_cards(&mut self.stock, &self.config);
     }
 
     /// Draw `amount` cards from the deck stock.
@@ -148,10 +151,7 @@ impl Deck {
         self.stock.append(&mut self.discard_pile);
         self.stock.reverse();
     }
-}
 
-
-impl Deck {
     /// Get a reference to the deck configuration.
     pub(crate) fn config(&self) -> &DeckConfig {
         &self.config
@@ -165,5 +165,34 @@ impl Deck {
     /// Get a reference to the deck discard pile.
     pub(crate) fn discard_pile(&self) -> &Vec<Card> {
         &self.discard_pile
+    }
+
+    /// Generating cards into a `stock` based on `config`.
+    fn generate_cards(stock: &mut Vec<Card>, config: &Rc<DeckConfig>) {
+        for _ in 0..config.pack_count {
+            for suit in Suit::iter() {
+                if suit == Suit::Joker { continue; }
+                for rank in Rank::iter() {
+                    if rank == Rank::Joker { continue; }
+                    stock.push(Card { rank, suit, deck_config: config.clone() });
+                }
+            }
+
+            if config.use_joker {
+                stock.push(Card { 
+                    rank: Rank::Joker, 
+                    suit: Suit::Joker, 
+                    deck_config: config.clone() 
+                });
+            }
+        }
+    }
+
+    /// Shuffles cards in a `stock` based on `config`.
+    fn shuffle_cards(stock: &mut Vec<Card>, config: &Rc<DeckConfig>) {
+        match config.shuffle_seed {
+            Some(seed) => stock.shuffle(&mut StdRng::seed_from_u64(seed)),
+            None => stock.shuffle(&mut rand::thread_rng())
+        }
     }
 }

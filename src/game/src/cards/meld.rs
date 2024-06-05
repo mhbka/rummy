@@ -1,5 +1,24 @@
 use super::{card::Card, suit_rank::Rank};
 
+
+pub trait Meldable {
+    /// Attempt to create a new meld out of a Vec of `Card`s.
+    /// 
+    /// If valid, the Vec is drained and `Ok` is returned.
+    /// Else, `cards` is returned untouched.
+    fn new(meld_cards: &mut Vec<Card>) -> Result<Self, String> where Self: Sized;
+
+    /// Attempt to add a `Card` to the set.
+    /// 
+    /// If the new card fits into the meld, it is moved into the meld and `Ok` is returned.
+    /// Else, `Error` is returned along with the card.
+    /// 
+    /// **NOTE**: in the `Error` case, the caller must ensure the card is moved somewhere concrete,
+    /// like a deck/player hand/discard pile.
+    fn layoff_card(&mut self, card: Card) -> Result<(), Card>;
+}
+
+
 /// A Rummy meld.
 /// 
 /// There are 2 types: a **set** (>=3 cards of same rank),
@@ -9,24 +28,25 @@ pub enum Meld {
     Run(Run)
 }
 
-pub trait Meldable {
-    /// Attempt to create a new meld out of a Vec of `Card`s.
-    /// 
-    /// If valid, `Ok` is returned.
-    /// Else, `Error` is returned along with the cards.
-    /// 
-    /// **NOTE**: in the `Error` case, the caller must ensure the cards are moved somewhere concrete,
-    /// like a deck/player hand/discard pile.
-    fn new(cards: Vec<Card>) -> Result<Self, Vec<Card>> where Self: Sized;
+impl Meldable for Meld {
+    fn new(meld_cards: &mut Vec<Card>) -> Result<Self, String> where Self: Sized {
+        if let Ok(set) = Set::new(meld_cards) {
+            Ok(Meld::Set(set))
+        }
+        else if let Ok(run) = Run::new(meld_cards) {
+            Ok(Meld::Run(run))
+        }
+        else {
+            Err("Cards don't form a valid set or run.".to_owned())
+        }
+    }
 
-    /// Attempt to add a `Card` to the set.
-    /// 
-    /// If the new card fits into the meld, it is moved into the meld and `Ok` is returned.
-    /// Else, `Error` is returned along with the card.
-    /// 
-    /// **NOTE**: in the `Error` case, the caller must ensure the card is moved somewhere concrete,
-    /// like a deck/player hand/discard pile.
-    fn try_add_card(&mut self, card: Card) -> Result<(), Card>;
+    fn layoff_card(&mut self, card: Card) -> Result<(), Card> {
+        match self {
+            Meld::Set(set) => set.layoff_card(card),
+            Meld::Run(run) => run.layoff_card(card)
+        }
+    }
 }
 
 
@@ -37,7 +57,9 @@ pub struct Set {
 }
 
 impl Meldable for Set {
-    fn new(mut cards: Vec<Card>) -> Result<Self, Vec<Card>> {
+    fn new(meld_cards: &mut Vec<Card>) -> Result<Self, String> {
+        let mut cards = meld_cards.clone();
+
         // assuming every card is tied to the same `deck_config`
         match cards[0].deck_config.wildcard_rank { 
             // every card has same rank, or is a wildcard.
@@ -61,11 +83,11 @@ impl Meldable for Set {
                         return Ok(Set{set_rank, cards});
                     }
                     else { // every card is a wildcard, which is not a valid set.
-                        return Err(cards);
+                        return Err("A set cannot be formed out of only wildcards".to_owned());
                     }
                 }
                 else {
-                    return Err(cards);
+                    return Err("Cards do not form a valid set".to_owned());
                 }
                 
             },
@@ -74,16 +96,19 @@ impl Meldable for Set {
                 if cards
                     .iter()
                     .all(|card| card.rank == cards[0].rank) {
-                    return Ok(Set{set_rank: cards[0].rank, cards});
+                        meld_cards.clear();
+                        return Ok(
+                            Set{ set_rank: cards[0].rank, cards }
+                        );
                 }   
                 else {
-                    return Err(cards);
+                    return Err("Cards do not form a valid set".to_owned());
                 }
             }
         }
     }
 
-    fn try_add_card(&mut self, card: Card) -> Result<(), Card> {
+    fn layoff_card(&mut self, card: Card) -> Result<(), Card> {
         if card.rank != self.set_rank { 
             return Err(card); 
         }
@@ -104,9 +129,8 @@ pub struct Run {
 }
 
 impl Meldable for Run {
-    fn new(mut cards: Vec<Card>) -> Result<Self, Vec<Card>> {
-        // TODO: any way to not do this?
-        let backup_cards = cards.clone();
+    fn new(mut meld_cards: &mut Vec<Card>) -> Result<Self, String> {
+        let mut cards = meld_cards.clone();
 
         cards.sort();
 
@@ -121,10 +145,10 @@ impl Meldable for Run {
                 Vec::new()
             }
         };
-        
 
         // Check that each card is same suit and +1 rank from previous card (or previous card is wildcard).
-        // If not, try to insert a wildcard; if we have none, return Error with the backup cards.
+        // If not, try to insert a wildcard.
+        // If we have none, return Err.
         for i in 1..cards.len() {
             if cards[i-1].suit == cards[i].suit
             && cards[i-1].rank as u8 == cards[i+1].rank as u8 + 1 {
@@ -142,14 +166,17 @@ impl Meldable for Run {
                         continue;
                     }
                 } 
-                return Err(backup_cards);
+                return Err("Cards don't form a valid run".to_owned());
             }
         }
 
-        Ok(Run { cards })
+        meld_cards.clear();
+        Ok(
+            Run { cards }
+        )
     }
 
-    fn try_add_card(&mut self, card: Card) -> Result<(), Card> {
+    fn layoff_card(&mut self, card: Card) -> Result<(), Card> {
         todo!();
     }
 }

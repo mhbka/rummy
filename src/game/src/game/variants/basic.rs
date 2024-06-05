@@ -1,4 +1,16 @@
-use crate::{cards::deck::Deck, player::{self, Player}};
+use crate::{
+    player::{self, Player},
+    cards::{
+        card, 
+        deck::Deck, 
+        meld::{
+            Meld, 
+            Meldable, 
+            Run, 
+            Set
+        }
+    }
+};
 use super::super::{
     actions::*,
     phases::*
@@ -71,16 +83,86 @@ impl PlayActions for BasicRummy<PlayPhase> {
     type SelfInRoundEndPhase = BasicRummy<RoundEndPhase>;
 
     fn form_meld(mut self, card_indices: Vec<usize>) 
-    -> TransitionResult<Self::SelfInDiscardPhase, Self::SelfInRoundEndPhase, Self, String>
+    -> TransitionResult<Self, Self::SelfInRoundEndPhase, Self, String>
     {
-        let player = &mut self.state.players[self.state.cur_player];
+        if card_indices.len() < 3 {
+            return TransitionResult::Error((
+                self,
+                "card_indices has less than 3 elements; need at least 3 for a meld".to_owned()
+            ));
+        }
 
+        let player = &mut self.state.players[self.state.cur_player];
+        let mut meld_cards = Vec::new();
+        
+        for i in card_indices {
+            if i > player.cards.len() {
+                return TransitionResult::Error((
+                    self,
+                    format!("An index in card_indices ({i}) is greater than player's hand size")
+                ))
+            }
+            else {
+                meld_cards.push(player.cards[i].clone());
+            }
+        }
+
+        if let Ok(meld) = Set::new(&mut meld_cards) {
+            player.melds.push(Meld::Set(meld));
+        }
+        else if let Ok(meld) = Run::new(&mut meld_cards) {
+            player.melds.push(Meld::Run(meld));
+        }
+        else {
+            return TransitionResult::Error((
+                self,
+                "Cards do not form a valid set or run".to_owned()
+            ))
+        }
+
+        TransitionResult::Next(self)
     }
 
     fn layoff_card(mut self, card_i: usize, target_player_i: usize, target_meld_i: usize)
     -> TransitionResult<Self, Self::SelfInRoundEndPhase, Self, String>
     {
-        todo!()
+        let err_string;
+
+        // check that all indices are valid first
+        if card_i >= self.state.players[self.state.cur_player].cards.len() {
+            err_string = "card_i is greater than current player's hand size";
+        } 
+        else if target_player_i >= self.state.players.len() {
+            err_string = "target_player_i is greater than number of players";
+        } 
+        else if !self.state.players[target_player_i].active {
+            err_string = "Target player is not active";
+        } 
+        else if target_meld_i >= self.state.players[target_player_i].melds.len() {
+            err_string = "target_meld_i is greater than target player's number of melds";
+        } 
+        else {
+            let card = self.state.players[self.state.cur_player]
+                .cards
+                .remove(card_i);
+
+            let meld = &mut self.state.players[target_player_i].melds[target_meld_i];
+
+            match meld.layoff_card(card) {
+                Ok(_) => return TransitionResult::Next(self),
+                Err(card) => {
+                    self.state.players[self.state.cur_player]
+                        .cards
+                        .insert(card_i, card);
+                    err_string = "Layoff was not valid";
+                }
+            }
+        }
+
+        TransitionResult::Error((
+            self, 
+            err_string.to_owned()
+        ))
     }
 
     fn to_discard(self) -> Self::SelfInDiscardPhase {

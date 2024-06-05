@@ -59,7 +59,7 @@ pub(crate) trait PlayActions: Sized {
     /// 
     /// 
     fn form_meld(self, card_indices: Vec<usize>) 
-        -> TransitionResult<Self::SelfInDiscardPhase, Self::SelfInRoundEndPhase, Self, String>;
+        -> TransitionResult<Self, Self::SelfInRoundEndPhase, Self, String>;
 
     /// Layoff `card_i` card in the current player's hand,
     /// to `target_player_i` player's `target_meld_i` meld.

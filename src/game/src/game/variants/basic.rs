@@ -36,6 +36,7 @@ const fn get_cards_to_deal(num_players: usize, num_decks: usize) -> usize {
 }
 
 
+/// All the state of a Rummy game. 
 struct BasicRummyState {
     deck: Deck,
     players: Vec<Player>,
@@ -47,6 +48,13 @@ struct BasicRummyState {
 pub struct BasicRummy<P: GamePhase> {
     phase: P,
     state: BasicRummyState
+}
+
+impl <P: GamePhase> BasicRummy<P> {
+    /// Obtain a mutable reference to current player.
+    fn cur_player(&mut self) -> &mut Player {
+        &mut self.state.players[self.state.cur_player]
+    }
 }
 
 
@@ -112,7 +120,7 @@ impl PlayActions for BasicRummy<PlayPhase> {
             ));
         }
 
-        let player = &mut self.state.players[self.state.cur_player];
+        let player = &mut self.cur_player();
         let mut meld_cards = Vec::new();
         
         for i in card_indices {
@@ -129,15 +137,14 @@ impl PlayActions for BasicRummy<PlayPhase> {
 
         if let Ok(meld) = Meld::new(&mut meld_cards) {
             player.melds.push(meld);
+            return TransitionResult::Next(self);
         }
         else {
             return TransitionResult::Error((
                 self,
                 "Cards do not form a valid set or run".to_owned()
             ))
-        }
-
-        TransitionResult::Next(self)
+        }        
     }
 
     fn layoff_card(mut self, card_i: usize, target_player_i: usize, target_meld_i: usize)
@@ -146,7 +153,7 @@ impl PlayActions for BasicRummy<PlayPhase> {
         let err_string;
 
         // check that all indices are valid first
-        if card_i >= self.state.players[self.state.cur_player].cards.len() {
+        if card_i >= self.cur_player().cards.len() {
             err_string = "card_i is greater than current player's hand size";
         } 
         else if target_player_i >= self.state.players.len() {
@@ -159,16 +166,28 @@ impl PlayActions for BasicRummy<PlayPhase> {
             err_string = "target_meld_i is greater than target player's number of melds";
         } 
         else {
-            let card = self.state.players[self.state.cur_player]
+            let card = self.cur_player()
                 .cards
                 .remove(card_i);
 
             let meld = &mut self.state.players[target_player_i].melds[target_meld_i];
 
             match meld.layoff_card(card) {
-                Ok(_) => return TransitionResult::Next(self),
+                Ok(_) =>{
+                    if self.cur_player().cards.len() == 0 {
+                        return TransitionResult::End(
+                            BasicRummy {
+                                phase: RoundEndPhase { has_scored_round: false },
+                                state: self.state
+                            }
+                        )
+                    } 
+                    else {
+                        return TransitionResult::Next(self);
+                    }
+                },
                 Err(card) => {
-                    self.state.players[self.state.cur_player]
+                    self.cur_player()
                         .cards
                         .insert(card_i, card);
                     err_string = "Layoff was not valid";
@@ -253,8 +272,9 @@ impl DiscardActions for BasicRummy<DiscardPhase> {
 
         let mut state = self.state;
         
+        // find the next active player
         state.cur_player = (state.cur_player + 1) % state.players.len();
-        while !state.players[state.cur_player].active { // find the next active player
+        while !state.players[state.cur_player].active { 
             state.cur_player = (state.cur_player + 1) % state.players.len();
         }
 
@@ -285,6 +305,8 @@ impl RoundEndActions for BasicRummy<RoundEndPhase> {
         let mut state = self.state;
         state.deck.reset();
 
+        // clear all players' cards, set players who just joined to active,
+        // and tally up active players
         let mut num_active_players = 0;
         for player in &mut state.players {
             player.melds.clear();
@@ -299,12 +321,13 @@ impl RoundEndActions for BasicRummy<RoundEndPhase> {
 
         for player in &mut state.players {
             player.cards.append(
-                state.deck.draw(
+                &mut state.deck.draw(
                     get_cards_to_deal(
                         num_active_players, 
                         state.deck.config().pack_count
                     )
                 )
+                .expect("The deal amounts should not overrun deck size")    
             )
         }
 
@@ -348,7 +371,7 @@ impl<P: GamePhase + PlayablePhase> PlayableActions for BasicRummy<P> {
             ));
         }
 
-        self.state.players[self.state.cur_player].active = false;
+        self.cur_player().active = false;
 
         if self.state.players.iter().all(|p| !p.active) { // end round if 
             return TransitionResult::End(
@@ -366,7 +389,7 @@ impl<P: GamePhase + PlayablePhase> PlayableActions for BasicRummy<P> {
     }
     
     fn quit_current_player(mut self) -> Self::SelfInDrawPhase {
-        self.state.players[self.state.cur_player].active = false;
+        self.cur_player().active = false;
 
         let mut state = self.state;
         

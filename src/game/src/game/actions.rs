@@ -105,7 +105,8 @@ pub(crate) trait RoundEndActions {
     // `Self` in `PlayPhase` and `RoundEndPhase`.
     type SelfInDrawPhase: DrawActions;
 
-    /// Calculate the round's score.
+    /// Calculate the round's score for players who are active,
+    /// or who have just quit.
     fn calculate_score(&mut self);
 
     /// Start a new round. Typically includes:
@@ -132,11 +133,14 @@ pub(crate) trait PlayableActions: Sized {
     /// Add a player to the game.
     /// 
     /// If `index` is given, add them at that index in `players`;
-    /// else, or if `index` is greater than no. of players,
+    /// else, or if `index` is greater than the number of players,
     /// add them at the last position of `players`.
     /// 
-    /// If the player was added while a round is ongoing, add them as inactive.
-    fn add_player(&mut self, player_id: usize, index: Option<usize>);
+    /// If the player was added while a round is ongoing, add them as inactive,
+    /// and start them next round.
+    /// 
+    /// If a player with `player_id` already exists, return `Err`.
+    fn add_player(&mut self, player_id: usize, index: Option<usize>) -> Result<(), String>;
 
     /// Sets a (non-current) player as having quit.
     /// If only 1 active player is left, ends the round.

@@ -1,8 +1,10 @@
+use std::collections::HashMap;
 use crate::{
     player::{self, Player},
     cards::{
         card, 
         deck::Deck, 
+        suit_rank::Rank::*,
         meld::{
             Meld, 
             Meldable, 
@@ -15,7 +17,6 @@ use super::super::{
     actions::*,
     phases::*
 };
-use phf::phf_map;
 
 
 /// Get the number of cards to deal each player at the start of a round,
@@ -35,9 +36,126 @@ const fn get_cards_to_deal(num_players: usize, num_decks: usize) -> usize {
     }
 }
 
+/// Keeps the score of a standard Rummy game.
+struct StandardRummyScore {
+    score: HashMap<usize, HashMap<usize, usize>>
+}
 
-/// All the state of a Rummy game. 
-struct BasicRummyState {
+impl StandardRummyScore {
+    /// Scores a set of players using the card values found [here](https://en.wikipedia.org/wiki/Rummy),
+    /// and sets it for the current round.
+    /// 
+    /// If `score_winner_only`, all other players' hand's values will be added as the winner's score;
+    /// else, each player is scored individually on their own hand's value.
+    fn calculate(&mut self, scoreable_players: &Vec<&Player>, round: usize, score_winner_only: bool) {
+        let individual_scores = StandardRummyScore::score_all(scoreable_players);
+
+        let mut round_score = match self.score.get(&round) {
+            Some(round_score) => round_score,
+            None => &HashMap::new()
+        };
+
+        if !score_winner_only {
+            for i in 0..scoreable_players.len() {
+                round_score.insert(scoreable_players[i].id, individual_scores[i]);
+            }
+        }
+
+        else {
+            let winner_score = individual_scores
+                .iter()
+                .fold(0, |acc, &s| acc + s);
+            let &winner = scoreable_players
+                .iter()
+                .find(|p| p.cards.len() == 0)
+                .expect("The game must be a winner with 0 cards in hand");
+            scoreable_players   
+                .iter()
+                .for_each(|&p| {
+                    if std::ptr::eq(winner, p) {
+                        round_score.insert(winner.id, winner_score);
+                    }
+                    else {
+                        round_score.insert(p.id, 0);
+                    }
+                })
+        }
+    }
+
+    /// Return a `Vec` where each element is the corresponding player's score.
+    fn score_all(scoreable_players: &Vec<&Player>) -> Vec<usize> {
+        scoreable_players
+            .iter()
+            .map(|&p| {
+                p.cards
+                    .iter()
+                    .fold(0,|score, card| {
+                        match card.rank {
+                            Ace => 15,
+                            King | Queen | Jack | Ten => 10,
+                            Joker => 0,
+                            rank => rank as usize,
+                        }
+                    })
+            })
+            .collect()
+    }
+
+    /// Obtain a reference to the inner HashMap (for viewing etc).
+    fn get(&self) -> &HashMap<usize, HashMap<usize, usize>> {
+        &self.score
+    }
+}
+
+
+/// The configurable options of a standard Rummy game.
+pub struct StandardRummyConfig {
+    /// Whether only the winner is scored by the total of all other players' hands,
+    /// 
+    /// where the **overall winner has the highest score**,
+    /// 
+    /// or all players are scored by their own hand,
+    /// 
+    /// where the **overall winner has the lowest score**.
+    pub score_winner_only: bool,
+
+    /// Whether a player forfeits their cards and score if they quit, or keep the cards
+    /// and get scored on the current state.
+    pub forfeit_cards_on_quit: bool,
+
+    /// Whether, once the deck stock is depleted and the discard pile is added into it,
+    /// to shuffle the stock or just leave it turnt over.
+    pub shuffle_stock_upon_depletion: bool,
+
+    /// Whether or not to use a rank as a wildcard, which increases on each round.
+    /// (for eg, Round 1 -> 2, Round 2 -> 3, Round 3 -> 4 ...)
+    pub increasing_wildcard_rank: bool,
+
+    /// How much of the discard pile can be drawn.
+    /// - If `None`, the player can choose how many to draw.
+    /// - If `Some(usize::MAX)`, the player must always take the entire discard pile.
+    /// - Else, the player draws the specified amount (or the entire pile, if its size is smaller).
+    pub discard_pile_draw_amount: Option<usize>,
+}
+
+impl StandardRummyConfig {
+    /// Configure the game based on the rules [here](https://en.wikipedia.org/wiki/Rummy).
+    pub fn new() -> Self {
+        StandardRummyConfig {
+            score_winner_only: true,
+            forfeit_cards_on_quit: true,
+            shuffle_stock_upon_depletion: false,
+            increasing_wildcard_rank: false,
+            discard_pile_draw_amount: Some(1)
+        }
+    }
+}
+
+
+/// The state of a Rummy game.
+struct StandardRummyState {
+    config: StandardRummyConfig,
+    score: StandardRummyScore,
     deck: Deck,
     players: Vec<Player>,
     cur_round: usize,
@@ -45,21 +163,26 @@ struct BasicRummyState {
 }
 
 /// A basic game of Rummy, following the rules/behaviour described [here](https://en.wikipedia.org/wiki/Rummy).
-pub struct BasicRummy<P: GamePhase> {
+pub struct StandardRummy<P: GamePhase> {
     phase: P,
-    state: BasicRummyState
+    state: StandardRummyState
 }
 
-impl <P: GamePhase> BasicRummy<P> {
-    /// Obtain a mutable reference to current player.
+impl <P: GamePhase> StandardRummy<P> {
+    /// Obtain mutable reference to the current player.
     fn cur_player(&mut self) -> &mut Player {
         &mut self.state.players[self.state.cur_player]
+    }
+
+    /// Obtain reference to the config.
+    fn config(&self) -> &StandardRummyConfig {
+        &self.state.config
     }
 }
 
 
-impl DrawActions for BasicRummy<DrawPhase> {
-    type SelfInPlayPhase = BasicRummy<PlayPhase>;
+impl DrawActions for StandardRummy<DrawPhase> {
+    type SelfInPlayPhase = StandardRummy<PlayPhase>;
 
     fn draw_stock(&mut self) -> Result<(), String> {
         let card = &mut self.state.deck.draw(1)?;
@@ -98,7 +221,7 @@ impl DrawActions for BasicRummy<DrawPhase> {
             self.draw_stock()
                 .expect("Drawing 1 card should always be OK");
         }  
-        BasicRummy {
+        StandardRummy {
             phase: PlayPhase { play_count: 0 },
             state: self.state
         }
@@ -106,9 +229,9 @@ impl DrawActions for BasicRummy<DrawPhase> {
 }
 
 
-impl PlayActions for BasicRummy<PlayPhase> {
-    type SelfInDiscardPhase = BasicRummy<DiscardPhase>;
-    type SelfInRoundEndPhase = BasicRummy<RoundEndPhase>;
+impl PlayActions for StandardRummy<PlayPhase> {
+    type SelfInDiscardPhase = StandardRummy<DiscardPhase>;
+    type SelfInRoundEndPhase = StandardRummy<RoundEndPhase>;
 
     fn form_meld(mut self, card_indices: Vec<usize>) 
     -> TransitionResult<Self, Self::SelfInRoundEndPhase, Self, String>
@@ -176,7 +299,7 @@ impl PlayActions for BasicRummy<PlayPhase> {
                 Ok(_) =>{
                     if self.cur_player().cards.len() == 0 {
                         return TransitionResult::End(
-                            BasicRummy {
+                            StandardRummy {
                                 phase: RoundEndPhase { has_scored_round: false },
                                 state: self.state
                             }
@@ -202,7 +325,7 @@ impl PlayActions for BasicRummy<PlayPhase> {
     }
 
     fn to_discard(self) -> Self::SelfInDiscardPhase {
-        BasicRummy {
+        StandardRummy {
             phase: DiscardPhase { has_discarded: false },
             state: self.state
         }
@@ -210,9 +333,9 @@ impl PlayActions for BasicRummy<PlayPhase> {
 }
 
 
-impl DiscardActions for BasicRummy<DiscardPhase> {
-    type SelfInDrawPhase = BasicRummy<DrawPhase>;
-    type SelfInRoundEndPhase = BasicRummy<RoundEndPhase>;
+impl DiscardActions for StandardRummy<DiscardPhase> {
+    type SelfInDrawPhase = StandardRummy<DrawPhase>;
+    type SelfInRoundEndPhase = StandardRummy<RoundEndPhase>;
 
     fn discard(mut self, card_i: usize) 
     -> TransitionResult<Self, Self::SelfInRoundEndPhase, Self, String> 
@@ -244,7 +367,7 @@ impl DiscardActions for BasicRummy<DiscardPhase> {
 
         if player_cards.len() == 0 {
             TransitionResult::End(
-                BasicRummy {
+                StandardRummy {
                     phase: RoundEndPhase { has_scored_round: false },
                     state: self.state
                 }
@@ -279,7 +402,7 @@ impl DiscardActions for BasicRummy<DiscardPhase> {
         }
 
         TransitionResult::Next(
-            BasicRummy {
+            StandardRummy {
                 phase: DrawPhase { has_drawn: false },
                 state
             }
@@ -288,13 +411,26 @@ impl DiscardActions for BasicRummy<DiscardPhase> {
 }
 
 
-impl RoundEndActions for BasicRummy<RoundEndPhase> {
-    type SelfInDrawPhase = BasicRummy<DrawPhase>;
+impl RoundEndActions for StandardRummy<RoundEndPhase> {
+    type SelfInDrawPhase = StandardRummy<DrawPhase>;
 
     fn calculate_score(&mut self) {
         self.phase.has_scored_round = true;
 
-        todo!()
+        let scoreable_players = self.state.players
+            .iter()
+            .filter(|p| {
+                // if forfeiting cards, only look at active players;
+                // if not, look at all players with cards
+                self.config().forfeit_cards_on_quit && p.active
+                || !self.config().forfeit_cards_on_quit && p.cards.len() > 0
+            })
+            .collect();
+            
+        self.state.score.calculate(
+            &scoreable_players, 
+            self.state.cur_round, 
+            self.config().score_winner_only)
     }
 
     fn to_next_round(mut self) -> Self::SelfInDrawPhase {
@@ -319,21 +455,24 @@ impl RoundEndActions for BasicRummy<RoundEndPhase> {
             }
         }
 
-        for player in &mut state.players {
-            player.cards.append(
-                &mut state.deck.draw(
-                    get_cards_to_deal(
-                        num_active_players, 
-                        state.deck.config().pack_count
-                    )
-                )
-                .expect("The deal amounts should not overrun deck size")    
-            )
-        }
+        let num_deal_cards = get_cards_to_deal(
+            num_active_players, 
+            state.deck.config().pack_count
+        );
+
+        state.players
+            .iter_mut()
+            .filter(|p| p.active)
+            .for_each(|p| {
+                let mut deal_cards = state.deck
+                    .draw(num_deal_cards)
+                    .expect("Drawing pre-determined deal amounts should never cause an error");
+                p.cards.append(&mut deal_cards);
+            });
 
         state.cur_round += 1;
 
-        BasicRummy {
+        StandardRummy {
             phase: DrawPhase { has_drawn: false },
             state
         }
@@ -341,24 +480,33 @@ impl RoundEndActions for BasicRummy<RoundEndPhase> {
 }
 
 
-impl GameEndActions for BasicRummy<GameEndPhase> {
+impl GameEndActions for StandardRummy<GameEndPhase> {
 
 }
 
 
-impl<P: GamePhase + PlayablePhase> PlayableActions for BasicRummy<P> {
-    type SelfInRoundEndPhase = BasicRummy<RoundEndPhase>;
-    type SelfInDrawPhase = BasicRummy<DrawPhase>;
+impl<P: GamePhase + PlayablePhase> PlayableActions for StandardRummy<P> {
+    type SelfInRoundEndPhase = StandardRummy<RoundEndPhase>;
+    type SelfInDrawPhase = StandardRummy<DrawPhase>;
 
-    fn add_player(&mut self, player_id: usize, index: Option<usize>) {
+    fn add_player(&mut self, player_id: usize, index: Option<usize>) -> Result<(), String> {
+        if !self.state.players
+            .iter()
+            .all(|p| p.id != player_id)
+        {
+            return Err(format!("Player ID {player_id} already exists"));
+        }
+
         let player = Player::new(player_id, false, self.state.cur_round);
 
         if index.is_none() || index.is_some_and(|i| i > self.state.players.len()) {
             self.state.players.push(player);
         }
-        else {
-            self.state.players.insert(index.unwrap(), player);
+        else if let Some(index) = index {
+            self.state.players.insert(index, player);
         }
+
+        Ok(())
     }
 
     fn quit_player(mut self, player_i: usize) 
@@ -373,18 +521,20 @@ impl<P: GamePhase + PlayablePhase> PlayableActions for BasicRummy<P> {
 
         self.cur_player().active = false;
 
-        if self.state.players.iter().all(|p| !p.active) { // end round if 
+        // end the round if there's only 1 player left
+        if self.state.players
+            .iter()
+            .fold(0,|acc, p| acc + p.active as usize) <= 1 
+        { 
             return TransitionResult::End(
-                BasicRummy {
+                StandardRummy {
                     phase: RoundEndPhase { has_scored_round: false},
                     state: self.state
                 }
             );
         }
         else {
-            return TransitionResult::Next(
-                self
-            );
+            return TransitionResult::Next(self);
         }
     }
     
@@ -398,7 +548,7 @@ impl<P: GamePhase + PlayablePhase> PlayableActions for BasicRummy<P> {
             state.cur_player = (state.cur_player + 1) % state.players.len();
         }
 
-        BasicRummy {
+        StandardRummy {
             phase: DrawPhase { has_drawn: true },
             state
         }

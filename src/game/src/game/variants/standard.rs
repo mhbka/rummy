@@ -71,6 +71,8 @@ impl StandardRummyGame {
     /// Starts the game with default settings, only requiring a list of `player_ids`.
     /// 
     /// If there are >7 players, the excess will be truncated. 
+    /// 
+    /// If you want to configure your game, use `new` instead.
     pub fn quickstart(player_ids: Vec<usize>) -> StandardRummy<RoundEndPhase> {
         let deck_config = DeckConfig {
             shuffle_seed: None,
@@ -90,7 +92,8 @@ impl StandardRummyGame {
 
 
 /// Keeps the score of a standard Rummy game.
-struct StandardRummyScore { 
+#[derive(Debug)]
+pub struct StandardRummyScore { 
     score: HashMap<usize, HashMap<usize, usize>>
 }
 
@@ -98,6 +101,11 @@ impl StandardRummyScore {
     /// Initialize a new score struct.
     fn new() -> Self {
         StandardRummyScore { score: HashMap::new() }
+    }
+
+    /// Obtain a reference to the inner HashMap (for viewing etc).
+    pub fn get(&self) -> &HashMap<usize, HashMap<usize, usize>> {
+        &self.score
     }
 
     /// Scores a set of players using the card values found [here](https://en.wikipedia.org/wiki/Rummy),
@@ -132,7 +140,7 @@ impl StandardRummyScore {
                 .expect("The game must be a winner with 0 cards in hand");
             scoreable_players   
                 .iter()
-                .for_each(|&p| {
+                .for_each(|&p| { // give winner his score, and everyone else 0
                     if std::ptr::eq(winner, p) {
                         round_score.insert(winner.id, winner_score);
                     }
@@ -151,7 +159,7 @@ impl StandardRummyScore {
                 p.cards
                     .iter()
                     .fold(0,|score, card| {
-                        match card.rank {
+                        score + match card.rank {
                             Ace => 15,
                             King | Queen | Jack | Ten => 10,
                             Joker => 0,
@@ -161,15 +169,11 @@ impl StandardRummyScore {
             })
             .collect()
     }
-
-    /// Obtain a reference to the inner HashMap (for viewing etc).
-    fn get(&self) -> &HashMap<usize, HashMap<usize, usize>> {
-        &self.score
-    }
 }
 
 
 /// The configurable options of a standard Rummy game.
+#[derive(Debug)]
 pub struct StandardRummyConfig {
     /// Whether only the winner is scored by the total of all other players' hands,
     /// 
@@ -216,13 +220,17 @@ impl StandardRummyConfig {
 
 
 /// The state of a Rummy game.
-struct StandardRummyState {
-    config: StandardRummyConfig,
-    score: StandardRummyScore,
-    deck: Deck,
-    players: Vec<Player>,
-    cur_round: usize,
-    cur_player: usize
+/// 
+//  INTERNAL NOTE: While this is completely public, it is only exposed through immutable ref
+//  from `view_state`, so it cannot be publicly mutated.
+#[derive(Debug)]
+pub struct StandardRummyState {
+    pub config: StandardRummyConfig,
+    pub score: StandardRummyScore,
+    pub deck: Deck,
+    pub players: Vec<Player>,
+    pub cur_round: usize,
+    pub cur_player: usize
 }
 
 
@@ -233,12 +241,17 @@ pub struct StandardRummy<P: GamePhase> {
 }
 
 impl <P: GamePhase> StandardRummy<P> {
-    /// Obtain mutable reference to the current player.
+    /// Returns a reference to the game's state.
+    pub fn view_state(&self) -> &StandardRummyState {
+        &self.state
+    }
+
+    /// Returns a mutable reference to the current player.
     fn cur_player(&mut self) -> &mut Player {
         &mut self.state.players[self.state.cur_player]
     }
 
-    /// Obtain reference to the config.
+    /// Returns a reference to the config.
     fn config(&self) -> &StandardRummyConfig {
         &self.state.config
     }

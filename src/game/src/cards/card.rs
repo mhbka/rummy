@@ -1,11 +1,11 @@
 use serde::{Serialize, Deserialize};
 use super::{deck::{Deck, DeckConfig}, suit_rank::{Rank, Suit}};
-use std::{rc::Rc, cmp::Ordering};
+use std::{cmp::Ordering, fmt::Debug, rc::Rc};
 
 /// A card.
 /// 
 /// Always tied to a `Deck`.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Card {
     pub(crate) rank: Rank,
     pub(crate) suit: Suit,
@@ -34,7 +34,6 @@ impl Card {
         (self.rank, self.suit)
     }
 }
-
 
 /// Basic equality impls.
 impl PartialEq for Card {

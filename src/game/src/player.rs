@@ -1,7 +1,8 @@
 use super::cards::{card::Card, meld::Meld};
 
 /// A Rummy player.
-pub(crate) struct Player {
+#[derive(Debug)]
+pub struct Player {
     pub(crate) id: usize,
     pub(crate) cards: Vec<Card>,
     pub(crate) melds: Vec<Meld>,
@@ -19,5 +20,26 @@ impl Player {
             active,
             joined_in_round
         }
+    }
+
+    // Reference getters
+    pub fn id(&self) -> usize {
+        self.id
+    }
+
+    pub fn cards(&self) -> &Vec<Card> {
+        &self.cards
+    }
+
+    pub fn melds(&self) -> &Vec<Meld> {
+        &self.melds
+    }
+
+    pub fn active(&self) -> bool {
+        self.active
+    }
+
+    pub fn joined_in_round(&self) -> usize {
+        self.joined_in_round
     }
 }

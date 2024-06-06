@@ -21,6 +21,7 @@ pub trait Meldable {
 /// There are 2 types: 
 /// - **Set**; >=3 cards of same rank
 /// - **Run**; >=3 sequential cards of same suit
+#[derive(Debug)]
 pub enum Meld {
     Set(Set),
     Run(Run)
@@ -49,6 +50,7 @@ impl Meldable for Meld {
 
 
 /// A Rummy meld set.
+#[derive(Debug)]
 pub struct Set {
     cards: Vec<Card>,
     pub(crate) set_rank: Rank
@@ -126,6 +128,7 @@ impl Meldable for Set {
 
 
 /// A Rummy meld run.
+#[derive(Debug)]
 pub struct Run {
     pub(crate) cards: Vec<Card>
 }

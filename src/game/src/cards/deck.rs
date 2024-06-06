@@ -15,7 +15,7 @@ use rand::{
 /// - `use_joker`: Whether to add Jokers and use them as wildcard (2 per pack)
 /// - `high_rank`: Whether to override the highest rank (default being King)
 /// - `wildcard_rank`: Whether to have a wildcard rank (mutually exclusive with `use_joker`)
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct DeckConfig {
     pub shuffle_seed: Option<u64>,
     pub pack_count: usize,
@@ -29,6 +29,7 @@ pub struct DeckConfig {
 /// The deck, consisting of the:
 /// - **stock**, face-down cards that can be drawn at the start of each turn
 /// - **discard pile**, discarded cards, which can also be drawn
+#[derive(Debug)]
 pub struct Deck {
     config: Rc<DeckConfig>,
     stock: Vec<Card>,

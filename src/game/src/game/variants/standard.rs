@@ -1,17 +1,13 @@
 use std::collections::HashMap;
 use crate::{
-    player::{self, Player},
     cards::{
-        card, 
-        deck::Deck, 
-        suit_rank::Rank::*,
-        meld::{
+        card, deck::{Deck, DeckConfig}, meld::{
             Meld, 
             Meldable, 
             Run, 
             Set
-        }
-    }
+        }, suit_rank::Rank::*
+    }, player::{self, Player}
 };
 use super::super::{
     actions::*,
@@ -36,12 +32,74 @@ const fn get_cards_to_deal(num_players: usize, num_decks: usize) -> usize {
     }
 }
 
+
+/// Entrypoint for starting a standard Rummy game.
+pub struct StandardRummyGame();
+
+impl StandardRummyGame {
+    /// Start a new Rummy game with a list of `player_ids`, a game config, and a deck config.
+    /// 
+    /// If there are >7 players, the excess will be truncated.
+    pub fn new(
+        mut player_ids: Vec<usize>, 
+        game_config: StandardRummyConfig, 
+        deck_config: DeckConfig) 
+    -> StandardRummy<RoundEndPhase> 
+    {   
+        player_ids.truncate(7);
+
+        let players = player_ids
+            .iter()
+            .map(|&id| Player::new(id, true, 0))
+            .collect();
+
+        let state = StandardRummyState {
+            config: game_config,
+            score: StandardRummyScore::new(),
+            deck: Deck::new(deck_config),
+            players,
+            cur_round: 0,
+            cur_player: 0,
+        };
+
+        StandardRummy {
+            phase: RoundEndPhase { has_scored_round: false },
+            state
+        }
+    }
+
+    /// Starts the game with default settings, only requiring a list of `player_ids`.
+    /// 
+    /// If there are >7 players, the excess will be truncated. 
+    pub fn quickstart(player_ids: Vec<usize>) -> StandardRummy<RoundEndPhase> {
+        let deck_config = DeckConfig {
+            shuffle_seed: None,
+            pack_count: if player_ids.len() < 5 {1} else {2},
+            use_joker: true,
+            high_rank: None,
+            wildcard_rank: None,
+        };
+
+        StandardRummyGame::new(
+            player_ids,
+            StandardRummyConfig::new(),
+            deck_config
+        )
+    }  
+}
+
+
 /// Keeps the score of a standard Rummy game.
-struct StandardRummyScore {
+struct StandardRummyScore { 
     score: HashMap<usize, HashMap<usize, usize>>
 }
 
 impl StandardRummyScore {
+    /// Initialize a new score struct.
+    fn new() -> Self {
+        StandardRummyScore { score: HashMap::new() }
+    }
+
     /// Scores a set of players using the card values found [here](https://en.wikipedia.org/wiki/Rummy),
     /// and sets it for the current round.
     /// 
@@ -50,9 +108,12 @@ impl StandardRummyScore {
     fn calculate(&mut self, scoreable_players: &Vec<&Player>, round: usize, score_winner_only: bool) {
         let individual_scores = StandardRummyScore::score_all(scoreable_players);
 
-        let mut round_score = match self.score.get(&round) {
+        let round_score = match self.score.get_mut(&round) {
             Some(round_score) => round_score,
-            None => &HashMap::new()
+            None => {
+                self.score.insert(round, HashMap::new());
+                self.score.get_mut(&round).unwrap()
+            }
         };
 
         if !score_winner_only {
@@ -140,6 +201,8 @@ pub struct StandardRummyConfig {
 
 impl StandardRummyConfig {
     /// Configure the game based on the rules [here](https://en.wikipedia.org/wiki/Rummy).
+    /// 
+    /// To initialize with your own settings, simply create this struct with its fields.
     pub fn new() -> Self {
         StandardRummyConfig {
             score_winner_only: true,
@@ -161,6 +224,7 @@ struct StandardRummyState {
     cur_round: usize,
     cur_player: usize
 }
+
 
 /// A basic game of Rummy, following the rules/behaviour described [here](https://en.wikipedia.org/wiki/Rummy).
 pub struct StandardRummy<P: GamePhase> {
@@ -184,8 +248,10 @@ impl <P: GamePhase> StandardRummy<P> {
 impl DrawActions for StandardRummy<DrawPhase> {
     type SelfInPlayPhase = StandardRummy<PlayPhase>;
 
-    fn draw_stock(&mut self) -> Result<(), String> {
-        let card = &mut self.state.deck.draw(1)?;
+    fn draw_stock(&mut self) {
+        let card = &mut self.state.deck
+            .draw(1)
+            .expect("Drawing 1 card should never cause an error"); // as we check and replenish below
 
         self.state
             .players[self.state.cur_player]
@@ -199,8 +265,6 @@ impl DrawActions for StandardRummy<DrawPhase> {
             }
 
         self.phase.has_drawn = true;
-        
-        Ok(())
     }
 
     fn draw_discard_pile(&mut self, amount: Option<usize>) -> Result<(), String> {
@@ -216,10 +280,9 @@ impl DrawActions for StandardRummy<DrawPhase> {
         Ok(())
     }
 
-    fn to_play(mut self) -> Self::SelfInPlayPhase {
+    fn to_play_phase(mut self) -> Self::SelfInPlayPhase {
         if !self.phase.has_drawn {
-            self.draw_stock()
-                .expect("Drawing 1 card should always be OK");
+            self.draw_stock();
         }  
         StandardRummy {
             phase: PlayPhase { play_count: 0 },
@@ -324,7 +387,7 @@ impl PlayActions for StandardRummy<PlayPhase> {
         ))
     }
 
-    fn to_discard(self) -> Self::SelfInDiscardPhase {
+    fn to_discard_phase(self) -> Self::SelfInDiscardPhase {
         StandardRummy {
             phase: DiscardPhase { has_discarded: false },
             state: self.state
@@ -554,7 +617,9 @@ impl<P: GamePhase + PlayablePhase> PlayableActions for StandardRummy<P> {
         }
     }
 
-    fn move_card_in_hand(&mut self, player_i: usize, old_pos: usize, mut new_pos: usize) -> Result<(), String> {
+    fn move_card_in_hand(&mut self, player_i: usize, old_pos: usize, mut new_pos: usize) 
+    -> Result<(), String> 
+    {
         if player_i > self.state.players.len() {
             return Err(format!("player_i {player_i} is greater than number of players"));
         }

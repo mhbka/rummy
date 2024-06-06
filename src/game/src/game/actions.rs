@@ -25,10 +25,10 @@ pub(crate) trait DrawActions {
     // `Self` in `PlayPhase`.
     type SelfInPlayPhase: PlayActions;
 
-    /// Draw from the stock for the current player.
+    /// Draw from the stock for the current player. If empty, reset it with the discard pile.
     /// 
     /// Resets the stock if it is empty after drawing.
-    fn draw_stock(&mut self) -> Result<(), String>;
+    fn draw_stock(&mut self);
 
     /// Draw from the discard pile for the current player.
     /// 
@@ -44,7 +44,7 @@ pub(crate) trait DrawActions {
     /// 
     /// **NOTE**: Ensure any required actions are taken by the time/during this call,
     /// as it is infallible.
-    fn to_play(self) -> Self::SelfInPlayPhase;
+    fn to_play_phase(self) -> Self::SelfInPlayPhase;
 }
 
 /// Trait for actions during PlayPhase.
@@ -74,7 +74,7 @@ pub(crate) trait PlayActions: Sized {
     /// 
     /// **NOTE**: Ensure any required actions are taken by the time/during this call,
     /// as it is infallible.
-    fn to_discard(self) -> Self::SelfInDiscardPhase;
+    fn to_discard_phase(self) -> Self::SelfInDiscardPhase;
 }
 
 /// Trait for actions during DiscardPhase.
@@ -140,6 +140,8 @@ pub(crate) trait PlayableActions: Sized {
     /// and start them next round.
     /// 
     /// If a player with `player_id` already exists, return `Err`.
+    /// 
+    /// If there are too many players (depending on the variant's ruling), return `Err`.
     fn add_player(&mut self, player_id: usize, index: Option<usize>) -> Result<(), String>;
 
     /// Sets a (non-current) player as having quit.

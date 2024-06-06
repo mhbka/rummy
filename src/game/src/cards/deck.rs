@@ -38,13 +38,15 @@ pub struct Deck {
 impl Deck {
     /// Creates a new deck following settings in `config` and shuffles it.
     /// 
-    /// **Note**: Returns `Err` if `pack_count` < 1, or `use_joker` is true while `wildcard_rank` isn't `None`.
-    pub(crate) fn new(config: DeckConfig) -> Result<Self, String> {
+    /// **Note**: 
+    /// - If `pack_count` < 1, it will be set to 1.
+    /// - If `use_joker` is true while `wildcard_rank` is not `None`, `use_joker` will default to `false`.
+    pub(crate) fn new(mut config: DeckConfig) -> Self {
         if config.pack_count < 1 {
-            return Err("Pack count < 1 while instantiating a Deck".to_owned());
+            config.pack_count = 1;
         }
         if config.wildcard_rank.is_some() && config.use_joker {
-            return Err("Cannot use Joker and specify a wildcard in a Deck".to_owned());
+            config.use_joker = false;
         }
 
         let config = Rc::new(config);
@@ -58,7 +60,7 @@ impl Deck {
         Deck::generate_cards(&mut deck.stock, &config);
         Deck::shuffle_cards(&mut deck.stock, &config);
 
-        Ok(deck)
+        deck
     }
 
     /// Reset the cards by creating a new deck and shuffling it.

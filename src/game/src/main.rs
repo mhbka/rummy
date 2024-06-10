@@ -5,8 +5,8 @@ pub mod player;
 use rprompt;
 use game::{
     actions::{
-        AllActions, DrawActions, PlayActions, PlayableActions, RoundEndActions, TransitionResult
-    }, phases::{DrawPhase, PlayPhase, RoundEndPhase}, state::{Score, State}, variants::standard::{
+        AllActions, DiscardActions, DrawActions, PlayActions, PlayableActions, RoundEndActions, TransitionResult
+    }, phases::{DiscardPhase, DrawPhase, PlayPhase, RoundEndPhase}, state::{Score, State}, variants::standard::{
         StandardRummy, 
         StandardRummyGame
     }
@@ -18,12 +18,30 @@ fn main() {
     handle_round(game);
 }
 
-fn handle_round(game: StandardRummy<RoundEndPhase>) {
+fn handle_round(game: StandardRummy<RoundEndPhase>) -> StandardRummy<RoundEndPhase> {
     let mut game = game.to_next_round();
+
     handle_draw(&mut game);
 
-    let mut game = game.to_play_phase();
-    handle_play(game);
+    let game = game.to_play_phase();
+
+    let game = match handle_play(game) {
+        Ok(game) => game,
+        Err(game) => {
+            println!("Round has ended; returning...");
+            return game; 
+        }
+    };
+
+    let game = game.to_discard_phase();
+
+    let game = match handle_discard(game) {
+        Ok(game) => game,
+        Err(game) => {
+            println!("Round has ended; returning...");
+            return game; 
+        }
+    }
 }
 
 fn print_state<C, S: Score>(state: &State<C, S>) {
@@ -82,37 +100,55 @@ fn handle_draw(game: &mut StandardRummy<DrawPhase>) {
     }
 }
 
-fn handle_play(game: StandardRummy<PlayPhase>) 
--> TransitionResult<Self, StandardRummy<RoundEndPhase>, Self, String> 
+fn handle_play(game: StandardRummy<PlayPhase>) -> Result<StandardRummy<PlayPhase>, StandardRummy<RoundEndPhase>>
 {
     let state = game.view_state();
     print_state(state);
 
-    match rprompt::prompt_reply(r#"
+    loop {
+        let play_result = match rprompt::prompt_reply(r#"
         1. Form meld
         2. Layoff card
-        3. Continue
-    "#)
-        .unwrap()
-        .as_str() {
-        "1" => {
-            play_meld(game)
-        },
-        "2" => {
-            play_layoff(game)
-        },
-        "3" => {
-            println!("Continuing...");
-            TransitionResult::Next(game)
-        },
-        _ => {
-            println!("Invalid input, continuing...");
-            TransitionResult::Next(game)
+        3. Discard
+        "#)
+            .unwrap()
+            .as_str() {
+            "1" => {
+                play_meld(game)
+            },
+            "2" => {
+                play_layoff(game)
+            },
+            "3" => {
+                println!("Continuing...");
+                TransitionResult::Next(game)
+            },
+            _ => {
+                println!("Invalid input, continuing...");
+                TransitionResult::Next(game)
+            }
+        };
+
+        let game = match play_result {
+            TransitionResult::Next(game) => game,
+            TransitionResult::End(game) => return Err(game),
+            TransitionResult::Error(res) => res.0
+        };
+
+        match rprompt::prompt_reply("Try again? (Y/N): ").unwrap().as_str() {
+            "Y" | "y" => continue,
+            "N" | "n" => return Ok(game),
+            _ => {
+                println!("Not valid input; going to discard...");
+                return Ok(game);
+            }
         }
-    }
+    };
 }
 
-fn play_meld(game: StandardRummy<PlayPhase>) {
+fn play_meld(game: StandardRummy<PlayPhase>)
+-> TransitionResult<StandardRummy<PlayPhase>, StandardRummy<RoundEndPhase>, StandardRummy<PlayPhase>, String> 
+{
     let cur_player = &game.view_state().players[game.view_state().cur_player];
     let mut indices = Vec::new();
     let mut index = 0;
@@ -134,15 +170,71 @@ fn play_meld(game: StandardRummy<PlayPhase>) {
                     println!("Chosen card: {:?}", cur_player.cards[i]);
                     indices.push(i);
                 }
-            }
+            },
+            Err(_) => println!("Invalid input.")
         }
     }
 
-    indices
-        .iter()
-        .map(|i| )
+    game.form_meld(indices)
 }
 
-fn play_layoff(game: StandardRummy<PlayPhase>) {
+fn play_layoff(game: StandardRummy<PlayPhase>) 
+-> TransitionResult<StandardRummy<PlayPhase>, StandardRummy<RoundEndPhase>, StandardRummy<PlayPhase>, String> 
+{
+    let cur_player = &game.view_state().players[game.view_state().cur_player];
 
+    let card_i = match rprompt::prompt_reply("Enter index of card to layoff: ")
+        .unwrap()
+        .parse()
+    {
+        Ok(i) => i,
+        Err(_) => {
+            println!("Invalid input; returning...");
+            return TransitionResult::Next(game);
+        },
+    }
+
+    let target_player_i = match rprompt::prompt_reply("Enter index of targeted player: ")
+        .unwrap()
+        .parse()    
+    {
+        Ok(i) => i,
+        Err(_) => {
+            println!("Invalid input; returning...");
+            return TransitionResult::Next(game);
+        },
+    };
+
+    let target_meld_i = match rprompt::prompt_reply("Enter index of targeted meld: ")
+        .unwrap()
+        .parse()    
+    {
+        Ok(i) => i,
+        Err(_) => {
+            println!("Invalid input; returning...");
+            return TransitionResult::Next(game);
+        },
+    };
+
+    game.layoff_card(card_i, target_player_i, target_meld_i)
+}
+
+fn handle_discard(game: StandardRummy<DiscardPhase>) -> Result< StandardRummy<DiscardPhase>, StandardRummy<RoundEndPhase>> {
+    let state = game.view_state();
+
+    print_state(state);
+
+    loop {
+        let i = match rprompt::prompt_reply("Choose a card to discard: ")
+            .unwrap()
+            .parse() {
+                Ok(i) => i,
+                Err(_) => {
+                    println!("Invalid; try again...");
+                    continue;
+                }
+            };
+        
+        game.discard(i)
+    }
 }

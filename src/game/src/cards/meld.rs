@@ -2,18 +2,18 @@ use super::{card::Card, suit_rank::Rank};
 
 
 pub trait Meldable {
-    /// Attempt to create a new meld out of a Vec of `Card`s.
+    /// Attempt to create a new meld out of `Card`s and indices of the chosen cards.
     /// 
-    /// If valid, the Vec is drained and `Ok` is returned.
-    /// Else, `Err` is returned and `cards` is left untouched.
-    fn new(meld_cards: &mut Vec<Card>) -> Result<Self, String> where Self: Sized;
+    /// If valid, the indexed cards are removed and `Ok` is returned.
+    /// Else, `Err` is returned and `meld_cards` is left untouched.
+    fn new(cards: &mut Vec<Card>, indices: Vec<usize>) -> Result<Self, String> where Self: Sized;
 
-    /// Attempt to add a `Card` to the set.
+    /// Attempt to add a card from `cards`, as chosen by `index`, to the meld.
     /// 
-    /// If the new card fits into the meld, it is moved into the meld and `Ok` is returned.
+    /// If valid, the card is moved from `cards` into the meld and `Ok` is returned.
     /// 
     /// Else, `Error` is returned along with the card.
-    fn layoff_card(&mut self, card: Card) -> Result<(), Card>;
+    fn layoff_card(&mut self, cards: &mut Vec<Card>, index: usize) -> Result<(), String>;
 }
 
 
@@ -28,11 +28,13 @@ pub enum Meld {
 }
 
 impl Meldable for Meld {
-    fn new(meld_cards: &mut Vec<Card>) -> Result<Self, String> where Self: Sized {
-        if let Ok(set) = Set::new(meld_cards) {
+    fn new(hand_cards: &mut Vec<Card>, indices: Vec<usize>) -> Result<Self, String> 
+    where Self: Sized 
+    {
+        if let Ok(set) = Set::new(hand_cards, indices) {
             Ok(Meld::Set(set))
         }
-        else if let Ok(run) = Run::new(meld_cards) {
+        else if let Ok(run) = Run::new(hand_cards, indices) {
             Ok(Meld::Run(run))
         }
         else {
@@ -40,10 +42,10 @@ impl Meldable for Meld {
         }
     }
 
-    fn layoff_card(&mut self, card: Card) -> Result<(), Card> {
+    fn layoff_card(&mut self, hand_cards: &mut Vec<Card>, index: usize) -> Result<(), String> {
         match self {
-            Meld::Set(set) => set.layoff_card(card),
-            Meld::Run(run) => run.layoff_card(card)
+            Meld::Set(set) => set.layoff_card(hand_cards, index),
+            Meld::Run(run) => run.layoff_card(hand_cards, index)
         }
     }
 }
@@ -57,8 +59,18 @@ pub struct Set {
 }
 
 impl Meldable for Set {
-    fn new(meld_cards: &mut Vec<Card>) -> Result<Self, String> {
-        let cards = meld_cards.clone();
+    fn new(hand_cards: &mut Vec<Card>, indices: Vec<usize>) -> Result<Self, String> {
+        let cards: Vec<&Card> = indices
+            .iter()
+            .map(|&i| {
+                if i >= hand_cards.len() {
+                    Err("Index in indices is greater than cards' size")
+                }
+                Ok(&hand_cards[i])
+            })
+            .cloned()
+            .collect()?;
+            
 
         // assuming every card is tied to the same `deck_config`
         match cards[0].deck_config.wildcard_rank { 
@@ -100,7 +112,11 @@ impl Meldable for Set {
                 if cards
                     .iter()
                     .all(|card| card.rank == cards[0].rank) {
-                        meld_cards.clear();
+                        hand_cards // remove the meld cards from hand
+                            .iter()
+                            .enumerate()
+                            .retain(|idx, card| !indices.contains(idx))
+                            .collect();
                         return Ok(
                             Set{ set_rank: cards[0].rank, cards }
                         );
@@ -112,7 +128,11 @@ impl Meldable for Set {
         }
     }
 
-    fn layoff_card(&mut self, card: Card) -> Result<(), Card> {
+    fn layoff_card(&mut self, hand_cards: &mut Vec<Card>, index: usize) -> Result<(), String> {
+        let card = hand_cards
+            .get(index)
+            .ok_or("index is greater than hand_cards' size")?;
+        
         if card.rank != self.set_rank { 
             return Err(card); 
         }
@@ -121,7 +141,9 @@ impl Meldable for Set {
                 return Err(card);
             }
         }
+
         self.cards.push(card);
+        hand_cards.remove(index);
         Ok(())
     }
 }
@@ -134,20 +156,28 @@ pub struct Run {
 }
 
 impl Meldable for Run {
-    fn new(meld_cards: &mut Vec<Card>) -> Result<Self, String> {
-        // TODO: do I just assume that every card is tied to the same deck?
-        let deck_config = meld_cards[0].deck_config.clone();
+    fn new(hand_cards: &mut Vec<Card>, indices: Vec<usize>) -> Result<Self, String> {
+        let cards: Vec<&Card> = indices
+        .iter()
+        .map(|&i| {
+            if i >= hand_cards.len() {
+                Err("Index in indices is greater than cards' size")
+            }
+            Ok(hand_cards[i])
+        })
+        .collect()?
+        .cloned();
+
+        let deck_config = cards[0].deck_config.clone();
 
         let (mut cards, mut wildcards) = match deck_config.wildcard_rank {
-            Some(wildcard_rank) => meld_cards
-                .iter()
-                .partition(|&c| c.rank == wildcard_rank),
-            None => (meld_cards.iter().collect(), Vec::new())
+            Some(wildcard_rank) => cards.iter().partition(|&c| c.rank == wildcard_rank),
+            None => cards.iter().collect(), Vec::new(),
         };
 
         // Check that each card is same suit and +1 rank from previous card (or previous card is wildcard).
-        // If not, try to insert a wildcard.
-        // If we have none, return Err.
+        // If not, try to insert a wildcard and continue.
+        // If we have no wildcards left to insert, return Err.
         for i in 1..cards.len() {
             if cards[i-1].suit == cards[i].suit
             && cards[i-1].rank as u8 == cards[i+1].rank as u8 + 1 {
@@ -174,7 +204,7 @@ impl Meldable for Run {
         Ok(meld)
     }
 
-    fn layoff_card(&mut self, card: Card) -> Result<(), Card> {
+    fn layoff_card(&mut self, hand_cards: &mut Vec<Card>, index: usize) -> Result<(), String> {
         todo!();
     }
 }

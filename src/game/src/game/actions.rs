@@ -1,12 +1,4 @@
-use super::phases::{
-    GamePhase,
-    PlayablePhase,
-    DrawPhase,
-    PlayPhase,
-    DiscardPhase,
-    RoundEndPhase,
-    GameEndPhase,
-};
+use super::state::{Score, State};
 
 
 /// A result for methods which may branch into different game phases:
@@ -21,13 +13,13 @@ pub enum TransitionResult <N, E: RoundEndActions, S, Err> {
 
 
 /// Trait for actions during DrawPhase.
-pub(crate) trait DrawActions {
+pub trait DrawActions {
     // `Self` in `PlayPhase`.
     type SelfInPlayPhase: PlayActions;
 
-    /// Draw from the stock for the current player. If empty, reset it with the discard pile.
+    /// Draw from the stock for the current player.
     /// 
-    /// Resets the stock if it is empty after drawing.
+    /// Resets the stock if it is empty after drawing, or if not enough cards are present.
     fn draw_stock(&mut self);
 
     /// Draw from the discard pile for the current player.
@@ -48,7 +40,7 @@ pub(crate) trait DrawActions {
 }
 
 /// Trait for actions during PlayPhase.
-pub(crate) trait PlayActions: Sized {
+pub trait PlayActions: Sized {
     // `Self` in `DiscardPhase` and `RoundEndPhase`.
     type SelfInDiscardPhase: DiscardActions;
     type SelfInRoundEndPhase: RoundEndActions;
@@ -57,7 +49,7 @@ pub(crate) trait PlayActions: Sized {
     /// 
     /// If the game ends with this play, returns an `End`; else, returns `Next` containing `Self`.
     /// 
-    /// 
+    /// If 
     fn form_meld(self, card_indices: Vec<usize>) 
         -> TransitionResult<Self, Self::SelfInRoundEndPhase, Self, String>;
 
@@ -78,7 +70,7 @@ pub(crate) trait PlayActions: Sized {
 }
 
 /// Trait for actions during DiscardPhase.
-pub(crate) trait DiscardActions: Sized {
+pub trait DiscardActions: Sized {
     // `Self` in `PlayPhase` and `RoundEndPhase`.
     type SelfInDrawPhase: DrawActions;
     type SelfInRoundEndPhase: RoundEndActions;
@@ -101,7 +93,7 @@ pub(crate) trait DiscardActions: Sized {
 }
 
 /// Trait for actions during RoundEndPhase.
-pub(crate) trait RoundEndActions {
+pub trait RoundEndActions {
     // `Self` in `PlayPhase` and `RoundEndPhase`.
     type SelfInDrawPhase: DrawActions;
 
@@ -121,12 +113,18 @@ pub(crate) trait RoundEndActions {
 }
 
 /// Trait for actions during GameEndPhase.
-pub(crate) trait GameEndActions {
+pub trait GameEndActions {
     // TODO: what makes sense here?
 }
 
+/// Trait for actions during any phase.
+pub trait AllActions<C, S: Score> {
+    /// View the game's state through an immutable reference.
+    fn view_state(&self) -> &State<C, S>;
+}
+
 /// Trait for actions during any playable phase.
-pub(crate) trait PlayableActions: Sized {
+pub trait PlayableActions: Sized {
     type SelfInRoundEndPhase: RoundEndActions;
     type SelfInDrawPhase: DrawActions;
 

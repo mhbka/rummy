@@ -7,12 +7,16 @@ use crate::{
             Run, 
             Set
         }, suit_rank::Rank::*
-    }, player::{self, Player}
+    }, game::state::{Score, State}, player::{self, Player}
 };
 use super::super::{
     actions::*,
     phases::*
 };
+
+
+/// State for a standard Rummy game.
+type StandardRummyState = State<StandardRummyConfig, StandardRummyScore>;
 
 
 /// Get the number of cards to deal each player at the start of a round,
@@ -97,15 +101,16 @@ pub struct StandardRummyScore {
     score: HashMap<usize, HashMap<usize, usize>>
 }
 
+impl Score for StandardRummyScore {
+    fn get(&self) -> &HashMap<usize, HashMap<usize, usize>> {
+        &self.score
+    }
+}
+
 impl StandardRummyScore {
     /// Initialize a new score struct.
     fn new() -> Self {
         StandardRummyScore { score: HashMap::new() }
-    }
-
-    /// Obtain a reference to the inner HashMap (for viewing etc).
-    pub fn get(&self) -> &HashMap<usize, HashMap<usize, usize>> {
-        &self.score
     }
 
     /// Scores a set of players using the card values found [here](https://en.wikipedia.org/wiki/Rummy),
@@ -129,7 +134,6 @@ impl StandardRummyScore {
                 round_score.insert(scoreable_players[i].id, individual_scores[i]);
             }
         }
-
         else {
             let winner_score = individual_scores
                 .iter()
@@ -137,7 +141,7 @@ impl StandardRummyScore {
             let &winner = scoreable_players
                 .iter()
                 .find(|p| p.cards.len() == 0)
-                .expect("The game must be a winner with 0 cards in hand");
+                .expect("The game must have a winner with 0 cards in hand");
             scoreable_players   
                 .iter()
                 .for_each(|&p| { // give winner his score, and everyone else 0
@@ -219,21 +223,6 @@ impl StandardRummyConfig {
 }
 
 
-/// The state of a Rummy game.
-/// 
-//  INTERNAL NOTE: While this is completely public, it is only exposed through immutable ref
-//  from `view_state`, so it cannot be publicly mutated.
-#[derive(Debug)]
-pub struct StandardRummyState {
-    pub config: StandardRummyConfig,
-    pub score: StandardRummyScore,
-    pub deck: Deck,
-    pub players: Vec<Player>,
-    pub cur_round: usize,
-    pub cur_player: usize
-}
-
-
 /// A basic game of Rummy, following the rules/behaviour described [here](https://en.wikipedia.org/wiki/Rummy).
 pub struct StandardRummy<P: GamePhase> {
     phase: P,
@@ -241,11 +230,6 @@ pub struct StandardRummy<P: GamePhase> {
 }
 
 impl <P: GamePhase> StandardRummy<P> {
-    /// Returns a reference to the game's state.
-    pub fn view_state(&self) -> &StandardRummyState {
-        &self.state
-    }
-
     /// Returns a mutable reference to the current player.
     fn cur_player(&mut self) -> &mut Player {
         &mut self.state.players[self.state.cur_player]
@@ -320,21 +304,8 @@ impl PlayActions for StandardRummy<PlayPhase> {
         }
 
         let player = &mut self.cur_player();
-        let mut meld_cards = Vec::new();
-        
-        for i in card_indices {
-            if i > player.cards.len() {
-                return TransitionResult::Error((
-                    self,
-                    format!("An index in card_indices ({i}) is greater than player's hand's size")
-                ))
-            }
-            else {
-                meld_cards.push(player.cards[i].clone());
-            }
-        }
 
-        if let Ok(meld) = Meld::new(&mut meld_cards) {
+        if let Ok(meld) = Meld::new(&mut player.cards, card_indices) {
             player.melds.push(meld);
             return TransitionResult::Next(self);
         }
@@ -365,15 +336,11 @@ impl PlayActions for StandardRummy<PlayPhase> {
             err_string = "target_meld_i is greater than target player's number of melds";
         } 
         else {
-            let card = self.cur_player()
-                .cards
-                .remove(card_i);
-
             let meld = &mut self.state.players[target_player_i].melds[target_meld_i];
 
-            match meld.layoff_card(card) {
+            match meld.layoff_card(&mut self.cur_player().cards, card_i) {
                 Ok(_) =>{
-                    if self.cur_player().cards.len() == 0 {
+                    if self.cur_player().cards.len() == 0 { // if all cards are gone, this player has won
                         return TransitionResult::End(
                             StandardRummy {
                                 phase: RoundEndPhase { has_scored_round: false },
@@ -385,11 +352,8 @@ impl PlayActions for StandardRummy<PlayPhase> {
                         return TransitionResult::Next(self);
                     }
                 },
-                Err(card) => {
-                    self.cur_player()
-                        .cards
-                        .insert(card_i, card);
-                    err_string = "Layoff was not valid";
+                Err(err) => {
+                    err_string = err.as_str();
                 }
             }
         }
@@ -560,6 +524,11 @@ impl GameEndActions for StandardRummy<GameEndPhase> {
 
 }
 
+impl <P: GamePhase> AllActions<StandardRummyConfig, StandardRummyScore> for StandardRummy<P> {
+    fn view_state(&self) -> &StandardRummyState {
+        &self.state
+    }
+}
 
 impl<P: GamePhase + PlayablePhase> PlayableActions for StandardRummy<P> {
     type SelfInRoundEndPhase = StandardRummy<RoundEndPhase>;

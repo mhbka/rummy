@@ -60,15 +60,14 @@ pub struct Set {
 
 impl Meldable for Set {
     fn new(hand_cards: &mut Vec<Card>, indices: Vec<usize>) -> Result<Self, String> {
-        let cards: Vec<&Card> = indices
+        let cards = indices
             .iter()
             .map(|&i| {
-                hand_cards.get(i)
-                    .ok_or("index is greater than hand_cards size")
+                hand_cards
+                    .get(i)
+                    .ok_or("index is greater than hand_cards size".to_string())
             })
-            .cloned()
-            .collect()?;
-            
+            .collect::<Result<Vec<_>, _>>()?;
 
         // assuming every card is tied to the same `deck_config`
         match cards[0].deck_config.wildcard_rank { 
@@ -92,6 +91,7 @@ impl Meldable for Set {
 
                     // set_rank has been set, and every card has this rank or the wildcard rank.
                     if let Some(set_rank) = set_rank {
+                        let cards = cards.into_iter().cloned().collect();
                         return Ok(Set{ set_rank, cards });
                     }
                     // every card is a wildcard, which is not a valid set.
@@ -105,16 +105,21 @@ impl Meldable for Set {
                 
             },
             
+            
             // we check if every card has same rank
             None => { 
                 if cards
                     .iter()
                     .all(|card| card.rank == cards[0].rank) {
-                        hand_cards // remove the meld cards from hand
-                            .iter()
-                            .enumerate()
-                            .retain(|idx, card| !indices.contains(idx))
-                            .collect();
+                        let mut idx = 0;
+                        hand_cards // if all cards have same rank, remove the meld cards from hand
+                            .retain(|c| {
+                                idx += 1;
+                                !indices.contains(&(idx - 1))
+                            });
+                        
+                        let cards: Vec<_> = cards.into_iter().cloned().collect();
+
                         return Ok(
                             Set{ set_rank: cards[0].rank, cards }
                         );
@@ -132,16 +137,18 @@ impl Meldable for Set {
             .ok_or("index is greater than hand_cards' size")?;
         
         if card.rank != self.set_rank { 
-            return Err(card); 
+            return Err("Card rank is not same as set's rank".to_string()); 
         }
         else if let Some(wildcard_rank) = card.deck_config.wildcard_rank {
             if card.rank != wildcard_rank {
-                return Err(card);
+                return Err("Card rank is not same as set's rank or wildcard rank".to_string());
             }
         }
 
-        self.cards.push(card);
-        hand_cards.remove(index);
+        self.cards.push(
+            hand_cards.remove(index)
+        );
+
         Ok(())
     }
 }
@@ -155,22 +162,19 @@ pub struct Run {
 
 impl Meldable for Run {
     fn new(hand_cards: &mut Vec<Card>, indices: Vec<usize>) -> Result<Self, String> {
-        let cards: Vec<&Card> = indices
-        .iter()
-        .map(|&i| {
-            if i >= hand_cards.len() {
-                Err("Index in indices is greater than cards' size")
-            }
-            Ok(hand_cards[i])
-        })
-        .collect()?
-        .cloned();
+        let cards = indices
+            .iter()
+            .map(|&i| {
+                hand_cards.get(i)
+                    .ok_or("Index in indices is greater than cards' size")
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
         let deck_config = cards[0].deck_config.clone();
 
         let (mut cards, mut wildcards) = match deck_config.wildcard_rank {
             Some(wildcard_rank) => cards.iter().partition(|&c| c.rank == wildcard_rank),
-            None => cards.iter().collect(), Vec::new(),
+            None => (cards.iter().collect(), Vec::new())
         };
 
         // Check that each card is same suit and +1 rank from previous card (or previous card is wildcard).
@@ -196,9 +200,21 @@ impl Meldable for Run {
             }
         }
 
-        // All ok, so clone ref cards to create a new meld, then drain original Vec and return
-        let meld = Run { cards: cards.into_iter().cloned().collect() };
-        meld_cards.clear();
+        // All ok, so clone ref cards to create a new meld, then remove them from `hand_cards` and return Ok
+        let meld = Run { 
+            cards: cards
+                .iter()
+                .map(|&&&c| &c) // WTF lmfao
+                .cloned()
+                .collect() 
+            };
+        
+        let mut idx = 0;
+        hand_cards.retain(|c| {
+            idx += 1;
+            indices.contains(&(idx - 1))
+        });
+
         Ok(meld)
     }
 

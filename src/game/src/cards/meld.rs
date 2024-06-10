@@ -63,10 +63,8 @@ impl Meldable for Set {
         let cards: Vec<&Card> = indices
             .iter()
             .map(|&i| {
-                if i >= hand_cards.len() {
-                    Err("Index in indices is greater than cards' size")
-                }
-                Ok(&hand_cards[i])
+                hand_cards.get(i)
+                    .ok_or("index is greater than hand_cards size")
             })
             .cloned()
             .collect()?;

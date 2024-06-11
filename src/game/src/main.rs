@@ -51,25 +51,26 @@ fn handle_round(mut game: StandardRummy<DrawPhase>) -> StandardRummy<RoundEndPha
 }
 
 fn print_state<C, S: Score>(state: &State<C, S>) {
+    println!("---------------");
     println!("Current player: {}", state.players[state.cur_player].id());
     println!("Deck size: {}", state.deck.stock().len());
     println!("Top discard card and size: {:?}, {}", state.deck.peek_discard_pile(), state.deck.discard_pile().len());
     println!("Players: ");
 
     for player in &state.players {
-        println!("---------------");
+        println!("----\n");
 
-        println!("Hand: {:?}", player.cards());
-        println!("----");
+        println!("Player: {}", player.id());
+        println!("----\n");
 
-        println!("Melds: ");    
-        for meld in &player.melds {
-            println!("{meld:?}");
-        }
-        println!("----");
+        println!("Hand: \n {:?}", player.cards());
+        println!("----\n");
 
-        println!("---------------");
+        println!("Melds: \n");    
+        for meld in &player.melds { println!("{meld:?}"); }   
     }
+    
+    println!("---------------");
 }
 
 fn handle_draw(game: &mut StandardRummy<DrawPhase>) {
@@ -82,26 +83,28 @@ fn handle_draw(game: &mut StandardRummy<DrawPhase>) {
         game.draw_stock();
     }
 
-    match rprompt::prompt_reply(r#"
+    else {
+        match rprompt::prompt_reply(r#"
         1. Draw stock
         2. Attempt to draw from discard pile
-    "#)
-        .unwrap()
-        .as_str() {
-        "1" => game.draw_stock(),
-        "2" => {
-            let amount = rprompt::prompt_reply("Draw how many?: ")
-                .unwrap()
-                .parse()
-                .ok();
-            if game.draw_discard_pile(amount).is_err() {
-                println!("Not enough cards in pile; drawing from stock...");
+        "#)
+            .unwrap()
+            .as_str() {
+            "1" => game.draw_stock(),
+            "2" => {
+                let amount = rprompt::prompt_reply("Draw how many?: ")
+                    .unwrap()
+                    .parse()
+                    .ok();
+                if game.draw_discard_pile(amount).is_err() {
+                    println!("Not enough cards in pile; drawing from stock...");
+                    game.draw_stock();
+                }
+            },
+            _ => {
+                println!("Invalid; drawing from stock...");
                 game.draw_stock();
             }
-        },
-        _ => {
-            println!("Invalid; drawing from stock...");
-            game.draw_stock();
         }
     }
 }
@@ -161,19 +164,19 @@ fn play_meld(game: StandardRummy<PlayPhase>)
     loop {
         match rprompt::prompt_reply("Enter index of card to put in meld (-1 to stop): ")
             .unwrap()
-            .parse() 
+            .parse::<i32>() 
         {
             Ok(i) => {
                 if i < 0 {
                     println!("Collecting...");
                     break;
                 }
-                else if i > cur_player.cards.len() {
+                else if i as usize > cur_player.cards.len() {
                     println!("Greater than player's hand size. Try again.");
                 }
                 else {
-                    println!("Chosen card: {:?}", cur_player.cards[i]);
-                    indices.push(i);
+                    println!("Chosen card: {:?}", cur_player.cards[i as usize]);
+                    indices.push(i as usize);
                 }
             },
             Err(_) => println!("Invalid input.")

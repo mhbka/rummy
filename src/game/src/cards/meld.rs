@@ -1,4 +1,4 @@
-use super::{card::Card, suit_rank::Rank};
+use super::{card::Card, suit_rank::{Rank, Suit}};
 
 
 pub trait Meldable {
@@ -6,14 +6,14 @@ pub trait Meldable {
     /// 
     /// If valid, the indexed cards are removed and `Ok` is returned.
     /// Else, `Err` is returned and `meld_cards` is left untouched.
-    fn new(cards: &mut Vec<Card>, indices: &Vec<usize>) -> Result<Self, String> where Self: Sized;
+    fn new(hand_cards: &mut Vec<Card>, indices: &Vec<usize>) -> Result<Self, String> where Self: Sized;
 
     /// Attempt to add a card from `cards`, as chosen by `index`, to the meld.
     /// 
     /// If valid, the card is moved from `cards` into the meld and `Ok` is returned.
     /// 
     /// Else, `Error` is returned along with the card.
-    fn layoff_card(&mut self, cards: &mut Vec<Card>, index: usize) -> Result<(), String>;
+    fn layoff_card(&mut self, hand_cards: &mut Vec<Card>, index: usize) -> Result<(), String>;
 }
 
 
@@ -38,7 +38,7 @@ impl Meldable for Meld {
             Ok(Meld::Run(run))
         }
         else {
-            Err("Cards don't form a valid set or run.".to_owned())
+            Err("Cards don't form a valid set or run.".into())
         }
     }
 
@@ -55,7 +55,7 @@ impl Meldable for Meld {
 #[derive(Debug)]
 pub struct Set {
     cards: Vec<Card>,
-    pub(crate) set_rank: Rank
+    set_rank: Rank
 }
 
 impl Meldable for Set {
@@ -158,7 +158,8 @@ impl Meldable for Set {
 /// A Rummy meld run.
 #[derive(Debug)]
 pub struct Run {
-    pub(crate) cards: Vec<Card>
+    cards: Vec<Card>,
+    suit: Suit
 }
 
 impl Meldable for Run {
@@ -201,25 +202,52 @@ impl Meldable for Run {
             }
         }
 
-        // All ok, so clone ref cards to create a new meld, then remove them from `hand_cards` and return Ok
-        let meld = Run { 
-            cards: cards
-                .iter()
-                .map(|&&c| c) // WTF lmfao
-                .cloned()
-                .collect() 
-            };
-        
+        let cards: Vec<_> = cards
+            .iter()
+            .map(|&&c| c) 
+            .cloned()
+            .collect();
+
+        let suit = cards[0].suit;
+
         let mut idx = 0;
-        hand_cards.retain(|c| {
+        hand_cards.retain(|_| {
             idx += 1;
             indices.contains(&(idx - 1))
         });
 
-        Ok(meld)
+        Ok(Run { cards, suit })
     }
 
     fn layoff_card(&mut self, hand_cards: &mut Vec<Card>, index: usize) -> Result<(), String> {
-        todo!();
+        let card = hand_cards
+            .get(index)
+            .ok_or("index is greater than hand_cards' size")?;
+
+        if card.suit != self.suit {
+            return Err("Card's suit isn't same as run's suit".into());
+        }
+        else if let Some(wildcard_rank) = card.deck_config.wildcard_rank {
+            if card.rank == wildcard_rank {
+                self.cards.push(
+                    hand_cards.remove(index)
+                );
+                return Ok(());
+            }
+        }
+        else {
+            for (idx, &ref meld_card) in self.cards.iter().enumerate() {
+                if card.rank as u8 + 1 == meld_card.rank as u8 {
+                    self.cards.insert(idx, hand_cards.remove(index));
+                    return Ok(());
+                }
+                else if card.rank as u8 -1 == meld_card.rank as u8 {
+                    self.cards.insert(idx + 1, hand_cards.remove(index));
+                    return Ok(());
+                }
+            }
+        }
+        
+        Err("Card cannot be laid off in this meld".into())
     }
 }

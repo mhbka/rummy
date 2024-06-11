@@ -31,14 +31,16 @@ impl Meldable for Meld {
     fn new(hand_cards: &mut Vec<Card>, indices: &Vec<usize>) -> Result<Self, String> 
     where Self: Sized 
     {
-        if let Ok(set) = Set::new(hand_cards, indices) {
-            Ok(Meld::Set(set))
-        }
-        else if let Ok(run) = Run::new(hand_cards, indices) {
-            Ok(Meld::Run(run))
-        }
-        else {
-            Err("Cards don't form a valid set or run.".into())
+        match Set::new(hand_cards, indices) {
+            Ok(set) => Ok(Meld::Set(set)),
+            Err(set_err) => {
+                match Run::new(hand_cards, indices) {
+                    Ok(run) => Ok(Meld::Run(run)),
+                    Err(run_err) => {
+                        Err(format!("Couldn't form set ({set_err}) or run ({run_err})"))
+                    }
+                }
+            }
         }
     }
 
@@ -69,14 +71,16 @@ impl Meldable for Set {
             })
             .collect::<Result<Vec<_>, _>>()?;
         
-        match cards[0].deck_config.wildcard_rank { // assuming every card is tied to the same `deck_config`
-            // we check if every card has same rank, or the wildcard rank
+        match cards[0].deck_config.wildcard_rank {
+            // check if every card has same rank, or the wildcard rank
             Some(wildcard_rank) => {
                 let mut set_rank: Option<Rank> = None;
                 if cards
                     .iter()
                     .all(|card| {
-                        if card.rank == wildcard_rank { return true; }
+                        if card.rank == wildcard_rank { 
+                            return true; 
+                        }
                         else {
                             match set_rank {
                                 Some(rank) => return card.rank == rank,
@@ -95,22 +99,20 @@ impl Meldable for Set {
                     }
                     // every card is a wildcard, which is not a valid set.
                     else { 
-                        return Err("A set cannot be formed out of only wildcards".to_owned());
+                        return Err("A set cannot be formed out of only wildcards".into());
                     }
                 }
                 else {
-                    return Err("Cards do not form a valid set".to_owned());
+                    return Err("Cards do not form a valid set".into());
                 }
-                
             },
-            
             
             // we check if every card has same rank
             None => { 
                 if cards
                     .iter()
                     .all(|card| card.rank == cards[0].rank) {
-                        let cards: Vec<_> = cards // clone meld cards into new vec
+                        let cards: Vec<_> = cards // clone meld cards into a new vec
                             .into_iter()
                             .cloned()
                             .collect();
@@ -126,7 +128,7 @@ impl Meldable for Set {
                         );
                 }   
                 else {
-                    return Err("Cards do not form a valid set".to_owned());
+                    return Err("Cards do not form a valid set".into());
                 }
             }
         }
@@ -198,7 +200,7 @@ impl Meldable for Run {
                         continue;
                     }
                 } 
-                return Err("Cards don't form a valid run".to_owned());
+                return Err("Cards don't form a valid run".into());
             }
         }
 
@@ -248,6 +250,6 @@ impl Meldable for Run {
             }
         }
         
-        Err("Card cannot be laid off in this meld".into())
+        Err("Card cannot be laid off in this run".into())
     }
 }

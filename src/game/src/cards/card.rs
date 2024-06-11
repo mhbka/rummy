@@ -17,18 +17,6 @@ pub struct Card {
 }
 
 impl Card {
-    /// Creates a new card.
-    ///  
-    /// Typically this is done inside a `Deck` instantiation,
-    /// as the card depends on the deck's configuration for comparisons.
-    pub(super) fn new(rank: Rank, suit: Suit, deck_config: Rc<DeckConfig>) -> Self {
-        Card {
-            rank,
-            suit,
-            deck_config
-        }
-    }
-
     /// Gets the card's rank and suit.
     pub fn data(&self) -> (Rank, Suit) {
         (self.rank, self.suit)

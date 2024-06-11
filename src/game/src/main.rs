@@ -53,21 +53,15 @@ fn handle_round(mut game: StandardRummy<DrawPhase>) -> StandardRummy<RoundEndPha
 fn print_state<C, S: Score>(state: &State<C, S>) {
     println!("---------------");
     println!("Current player: {}", state.players[state.cur_player].id());
+    println!("Hand: {:?}", state.players[state.cur_player].cards());
     println!("Deck size: {}", state.deck.stock().len());
     println!("Top discard card and size: {:?}, {}", state.deck.peek_discard_pile(), state.deck.discard_pile().len());
-    println!("Players: ");
+    println!("Melds: ");
 
     for player in &state.players {
-        println!("----\n");
-
-        println!("Player: {}", player.id());
-        println!("----\n");
-
-        println!("Hand: \n {:?}", player.cards());
-        println!("----\n");
-
-        println!("Melds: \n");    
-        for meld in &player.melds { println!("{meld:?}"); }   
+        println!("Player: {}", player.id());    
+        for meld in &player.melds { println!("{meld:?}"); }
+        println!("\n");   
     }
     
     println!("---------------");
@@ -130,21 +124,24 @@ fn handle_play(mut game: StandardRummy<PlayPhase>) -> Result<StandardRummy<PlayP
             },
             "3" => {
                 println!("Continuing...");
-                TransitionResult::Next(game)
+                return Ok(game);
             },
             _ => {
                 println!("Invalid input, continuing...");
-                TransitionResult::Next(game)
+                return Ok(game);
             }
         };
 
         game = match play_result {
             TransitionResult::Next(game) => game,
             TransitionResult::End(game) => return Err(game),
-            TransitionResult::Error(res) => res.0
+            TransitionResult::Error((game, err)) => {
+                println!("Problem: {err}");
+                game
+            }
         };
 
-        match rprompt::prompt_reply("Try again? (Y/N): ").unwrap().as_str() {
+        match rprompt::prompt_reply("Make another play? (Y/N): ").unwrap().as_str() {
             "Y" | "y" => continue,
             "N" | "n" => return Ok(game),
             _ => {

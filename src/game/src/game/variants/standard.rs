@@ -621,4 +621,14 @@ impl<P: GamePhase + PlayablePhase> PlayableActions for StandardRummy<P> {
 
         Ok(())
     }
+    
+    fn sort_hand(&mut self, player_i: usize) -> Result<(), String> {
+        self.state.players
+            .get_mut(player_i)
+            .ok_or("player_i is larger than number of players")?
+            .cards
+            .sort();
+
+        Ok(())
+    }
 }

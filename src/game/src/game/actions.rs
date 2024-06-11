@@ -159,4 +159,9 @@ pub trait PlayableActions: Sized {
     /// If `player_i` or `old_pos` is invalid, an `Err` is returned.
     /// If `new_pos` is greater than the player's hand size, the card is moved to the rightmost position.
     fn move_card_in_hand(&mut self, player_i: usize, old_pos: usize, new_pos: usize) -> Result<(), String>;
+
+    /// Sort a player's hand by rank, then suit.
+    /// 
+    /// If `player_i` is invalid, an `Err` is returned.
+    fn sort_hand(&mut self, player_i: usize) -> Result<(), String>;
 }

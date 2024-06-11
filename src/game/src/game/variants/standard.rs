@@ -305,7 +305,7 @@ impl PlayActions for StandardRummy<PlayPhase> {
 
         let player = &mut self.cur_player();
 
-        if let Ok(meld) = Meld::new(&mut player.cards, card_indices) {
+        if let Ok(meld) = Meld::new(&mut player.cards, &card_indices) {
             player.melds.push(meld);
             return TransitionResult::Next(self);
         }
@@ -324,22 +324,24 @@ impl PlayActions for StandardRummy<PlayPhase> {
 
         // check that all indices are valid first
         if card_i >= self.cur_player().cards.len() {
-            err_string = "card_i is greater than current player's hand size";
+            err_string = "card_i is greater than current player's hand size".into();
         } 
         else if target_player_i >= self.state.players.len() {
-            err_string = "target_player_i is greater than number of players";
+            err_string = "target_player_i is greater than number of players".into();
         } 
         else if !self.state.players[target_player_i].active {
-            err_string = "Target player is not active";
+            err_string = "Target player is not active".into();
         } 
         else if target_meld_i >= self.state.players[target_player_i].melds.len() {
-            err_string = "target_meld_i is greater than target player's number of melds";
+            err_string = "target_meld_i is greater than target player's number of melds".into();
         } 
         else {
-            let meld = &mut self.state.players[target_player_i].melds[target_meld_i];
+            let mut meld = self.state.players[target_player_i].melds.remove(target_meld_i); // so i don't do &mut self simultaneously
 
             match meld.layoff_card(&mut self.cur_player().cards, card_i) {
-                Ok(_) =>{
+                Ok(_) => {
+                    self.state.players[target_player_i].melds.insert(target_meld_i, meld); // then i put it back here
+
                     if self.cur_player().cards.len() == 0 { // if all cards are gone, this player has won
                         return TransitionResult::End(
                             StandardRummy {
@@ -352,9 +354,8 @@ impl PlayActions for StandardRummy<PlayPhase> {
                         return TransitionResult::Next(self);
                     }
                 },
-                Err(err) => {
-                    err_string = err.as_str();
-                }
+
+                Err(err) => err_string = err
             }
         }
 

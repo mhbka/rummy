@@ -14,33 +14,39 @@ use game::{
 
 fn main() {
     let player_ids = vec![1, 2, 3, 4];
-    let mut game = StandardRummyGame::quickstart(player_ids);
+    let game = StandardRummyGame::quickstart(player_ids).to_next_round();
     handle_round(game);
 }
 
-fn handle_round(game: StandardRummy<RoundEndPhase>) -> StandardRummy<RoundEndPhase> {
-    let mut game = game.to_next_round();
+fn handle_round(mut game: StandardRummy<DrawPhase>) -> StandardRummy<RoundEndPhase> {
+    loop {
+        handle_draw(&mut game);
 
-    handle_draw(&mut game);
+        let mut play_game = game.to_play_phase();
 
-    let game = game.to_play_phase();
+        play_game = match handle_play(play_game) {
+            Ok(game) => game,
+            Err(game) => {
+                println!("Round has ended; returning...");
+                return game; 
+            }
+        };
 
-    let game = match handle_play(game) {
-        Ok(game) => game,
-        Err(game) => {
-            println!("Round has ended; returning...");
-            return game; 
-        }
-    };
+        let discard_game = play_game.to_discard_phase();
 
-    let game = game.to_discard_phase();
+        let discard_game = match handle_discard(discard_game) {
+            Ok(game) => game,
+            Err(game) => {
+                println!("Round has ended; returning...");
+                return game; 
+            }
+        };
 
-    let game = match handle_discard(game) {
-        Ok(game) => game,
-        Err(game) => {
-            println!("Round has ended; returning...");
-            return game; 
-        }
+        game = match discard_game.to_next_player() {
+            TransitionResult::Next(game) => game,
+            TransitionResult::End(_) => unreachable!(), // already discarded above, so no auto-discard; thus, round cannot end here
+            TransitionResult::Error(_) => unreachable!(), // no error occurs here
+        };
     }
 }
 
@@ -57,7 +63,7 @@ fn print_state<C, S: Score>(state: &State<C, S>) {
         println!("----");
 
         println!("Melds: ");    
-        for meld in player.melds {
+        for meld in &player.melds {
             println!("{meld:?}");
         }
         println!("----");
@@ -100,7 +106,7 @@ fn handle_draw(game: &mut StandardRummy<DrawPhase>) {
     }
 }
 
-fn handle_play(game: StandardRummy<PlayPhase>) -> Result<StandardRummy<PlayPhase>, StandardRummy<RoundEndPhase>>
+fn handle_play(mut game: StandardRummy<PlayPhase>) -> Result<StandardRummy<PlayPhase>, StandardRummy<RoundEndPhase>>
 {
     let state = game.view_state();
     print_state(state);
@@ -129,7 +135,7 @@ fn handle_play(game: StandardRummy<PlayPhase>) -> Result<StandardRummy<PlayPhase
             }
         };
 
-        let game = match play_result {
+        game = match play_result {
             TransitionResult::Next(game) => game,
             TransitionResult::End(game) => return Err(game),
             TransitionResult::Error(res) => res.0
@@ -151,8 +157,7 @@ fn play_meld(game: StandardRummy<PlayPhase>)
 {
     let cur_player = &game.view_state().players[game.view_state().cur_player];
     let mut indices = Vec::new();
-    let mut index = 0;
-
+    
     loop {
         match rprompt::prompt_reply("Enter index of card to put in meld (-1 to stop): ")
             .unwrap()
@@ -181,8 +186,6 @@ fn play_meld(game: StandardRummy<PlayPhase>)
 fn play_layoff(game: StandardRummy<PlayPhase>) 
 -> TransitionResult<StandardRummy<PlayPhase>, StandardRummy<RoundEndPhase>, StandardRummy<PlayPhase>, String> 
 {
-    let cur_player = &game.view_state().players[game.view_state().cur_player];
-
     let card_i = match rprompt::prompt_reply("Enter index of card to layoff: ")
         .unwrap()
         .parse()
@@ -192,7 +195,7 @@ fn play_layoff(game: StandardRummy<PlayPhase>)
             println!("Invalid input; returning...");
             return TransitionResult::Next(game);
         },
-    }
+    };
 
     let target_player_i = match rprompt::prompt_reply("Enter index of targeted player: ")
         .unwrap()
@@ -219,7 +222,9 @@ fn play_layoff(game: StandardRummy<PlayPhase>)
     game.layoff_card(card_i, target_player_i, target_meld_i)
 }
 
-fn handle_discard(game: StandardRummy<DiscardPhase>) -> Result< StandardRummy<DiscardPhase>, StandardRummy<RoundEndPhase>> {
+fn handle_discard(mut game: StandardRummy<DiscardPhase>)
+-> Result<StandardRummy<DiscardPhase>, StandardRummy<RoundEndPhase>> 
+{
     let state = game.view_state();
 
     print_state(state);
@@ -235,6 +240,19 @@ fn handle_discard(game: StandardRummy<DiscardPhase>) -> Result< StandardRummy<Di
                 }
             };
         
-        game.discard(i)
+        game = match game.discard(i) {
+            TransitionResult::Next(game) => {
+                println!("Discarded a card.");
+                return Ok(game);
+            },
+            TransitionResult::End(game) => {
+                println!("Last card discarded; round ending...");
+                return Err(game);
+            },
+            TransitionResult::Error((game, _)) => {
+                println!("Invalid index; try again.");
+                game
+            },
+        }
     }
 }

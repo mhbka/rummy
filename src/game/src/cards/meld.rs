@@ -72,6 +72,7 @@ impl Meldable for Set {
             .collect::<Result<Vec<_>, _>>()?;
         
         match cards[0].deck_config.wildcard_rank {
+            
             // check if every card has same rank, or the wildcard rank
             Some(wildcard_rank) => {
                 let mut set_rank: Option<Rank> = None;
@@ -92,18 +93,18 @@ impl Meldable for Set {
                         }
                     }) {
 
-                    // set_rank has been set, and every card has this rank or the wildcard rank.
+                    // set_rank has been set, and every card has this rank or the wildcard rank
                     if let Some(set_rank) = set_rank {
                         let cards = cards.into_iter().cloned().collect();
                         return Ok(Set{ set_rank, cards });
                     }
-                    // every card is a wildcard, which is not a valid set.
+                    // every card is a wildcard, which is not a valid set 
                     else { 
                         return Err("A set cannot be formed out of only wildcards".into());
                     }
                 }
                 else {
-                    return Err("Cards do not form a valid set".into());
+                    return Err("Cards do not form a valid set (wild)".into());
                 }
             },
             
@@ -169,10 +170,11 @@ impl Meldable for Run {
         let cards = indices
             .iter()
             .map(|&i| {
-                hand_cards.get(i)
+                hand_cards
+                    .get(i)
                     .ok_or("Index in indices is greater than cards' size")
             })
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<Vec<_>, _>>()?; // lmfao nice syntax
 
         let deck_config = cards[0].deck_config.clone();
 
@@ -185,11 +187,11 @@ impl Meldable for Run {
         // If not, try to insert a wildcard and continue.
         // If we have no wildcards left to insert, return Err.
         for i in 1..cards.len() {
-            if cards[i-1].suit == cards[i].suit
-            && cards[i-1].rank as u8 == cards[i+1].rank as u8 + 1 {
-                continue;
-            }
-            else {
+            if !(
+                cards[i-1].suit == cards[i].suit
+                && cards[i-1].rank as u8 == cards[i].rank as u8 + 1
+            ) 
+            {
                 if let Some(wildcard_rank) = deck_config.wildcard_rank {
                     if cards[i-1].rank == wildcard_rank {
                         continue;

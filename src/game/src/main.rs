@@ -6,7 +6,7 @@ use rprompt;
 use game::{
     actions::{
         AllActions, DiscardActions, DrawActions, PlayActions, PlayableActions, RoundEndActions, TransitionResult
-    }, phases::{DiscardPhase, DrawPhase, PlayPhase, RoundEndPhase}, state::{Score, State}, variants::standard::{
+    }, phases::{DiscardPhase, DrawPhase, GamePhase, PlayPhase, PlayablePhase, RoundEndPhase}, state::{Score, State}, variants::standard::{
         StandardRummy, 
         StandardRummyGame
     }
@@ -112,7 +112,8 @@ fn handle_play(mut game: StandardRummy<PlayPhase>) -> Result<StandardRummy<PlayP
         let play_result = match rprompt::prompt_reply(r#"
         1. Form meld
         2. Layoff card
-        3. Discard
+        3. Sort hand
+        4. Discard
         "#)
             .unwrap()
             .as_str() {
@@ -123,6 +124,10 @@ fn handle_play(mut game: StandardRummy<PlayPhase>) -> Result<StandardRummy<PlayP
                 play_layoff(game)
             },
             "3" => {
+                sort_hand(&mut game);
+                TransitionResult::Next(game)
+            },
+            "4" => {
                 println!("Continuing...");
                 return Ok(game);
             },
@@ -136,13 +141,13 @@ fn handle_play(mut game: StandardRummy<PlayPhase>) -> Result<StandardRummy<PlayP
             TransitionResult::Next(game) => game,
             TransitionResult::End(game) => return Err(game),
             TransitionResult::Error((game, err)) => {
-                println!("Problem: {err}");
+                println!("Error: {err}");
                 game
             }
         };
 
         match rprompt::prompt_reply("Make another play? (Y/N): ").unwrap().as_str() {
-            "Y" | "y" => continue,
+            "Y" | "y" => print_state(game.view_state()),
             "N" | "n" => return Ok(game),
             _ => {
                 println!("Not valid input; going to discard...");
@@ -220,6 +225,23 @@ fn play_layoff(game: StandardRummy<PlayPhase>)
     };
 
     game.layoff_card(card_i, target_player_i, target_meld_i)
+}
+
+fn sort_hand<P: GamePhase + PlayablePhase>(game: &mut StandardRummy<P>) {
+    match rprompt::prompt_reply("Choose player to sort hand for: ")
+        .unwrap()
+        .parse()
+    {
+        Ok(i) => {
+            match game.sort_hand(i) {
+                Ok(_) => println!("Sorted player {i}'s hand."),
+                Err(err) => println!("Error: {err}")
+            }
+        },
+        Err(_) => {
+            println!("Invalid input.");
+        }
+    }
 }
 
 fn handle_discard(mut game: StandardRummy<DiscardPhase>)

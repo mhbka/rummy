@@ -299,22 +299,21 @@ impl PlayActions for StandardRummy<PlayPhase> {
         if card_indices.len() < 3 {
             return TransitionResult::Error((
                 self,
-                "card_indices has less than 3 elements; need at least 3 for a meld".to_owned()
+                "card_indices has less than 3 elements; need at least 3 for a meld".into()
             ));
         }
 
         let player = &mut self.cur_player();
 
-        if let Ok(meld) = Meld::new(&mut player.cards, &card_indices) {
-            player.melds.push(meld);
-            return TransitionResult::Next(self);
-        }
-        else {
-            return TransitionResult::Error((
-                self,
-                "Cards do not form a valid set or run".to_owned()
-            ))
-        }        
+        match Meld::new(&mut player.cards, &card_indices) {
+            Ok(meld) => {
+                player.melds.push(meld);
+                return TransitionResult::Next(self);
+            },
+            Err(err) => {
+                return TransitionResult::Error((self, err));
+            }
+        }      
     }
 
     fn layoff_card(mut self, card_i: usize, target_player_i: usize, target_meld_i: usize)
@@ -336,11 +335,11 @@ impl PlayActions for StandardRummy<PlayPhase> {
             err_string = "target_meld_i is greater than target player's number of melds".into();
         } 
         else {
-            let mut meld = self.state.players[target_player_i].melds.remove(target_meld_i); // so i don't do &mut self simultaneously
+            let mut meld = self.state.players[target_player_i].melds.remove(target_meld_i); // move so i don't do &mut self simultaneously ...
 
-            match meld.layoff_card(&mut self.cur_player().cards, card_i) {
+            match meld.layoff_card(&mut self.cur_player().cards, card_i) { // ... with here ...
                 Ok(_) => {
-                    self.state.players[target_player_i].melds.insert(target_meld_i, meld); // then i put it back here
+                    self.state.players[target_player_i].melds.insert(target_meld_i, meld); // ... then i put it back
 
                     if self.cur_player().cards.len() == 0 { // if all cards are gone, this player has won
                         return TransitionResult::End(
@@ -361,7 +360,7 @@ impl PlayActions for StandardRummy<PlayPhase> {
 
         TransitionResult::Error((
             self, 
-            err_string.to_owned()
+            err_string.into()
         ))
     }
 
@@ -384,7 +383,7 @@ impl DiscardActions for StandardRummy<DiscardPhase> {
         if self.phase.has_discarded {
             return TransitionResult::Error((
                 self,
-                "Player has already discarded a card".to_owned()
+                "Player has already discarded a card".into()
             ));
         }
 
@@ -394,7 +393,7 @@ impl DiscardActions for StandardRummy<DiscardPhase> {
 
         let no_player_cards = player_cards.len();
 
-        if card_i > no_player_cards {
+        if card_i >= no_player_cards {
             return TransitionResult::Error((
                 self,
                 format!("card_i ({}) is greater than player's hand size ({})", card_i, no_player_cards)
@@ -463,8 +462,8 @@ impl RoundEndActions for StandardRummy<RoundEndPhase> {
             .filter(|p| {
                 // if forfeiting cards, only look at active players;
                 // if not, look at all players with cards
-                self.config().forfeit_cards_on_quit && p.active
-                || !self.config().forfeit_cards_on_quit && p.cards.len() > 0
+                (self.config().forfeit_cards_on_quit && p.active)
+                || (!self.config().forfeit_cards_on_quit && p.cards.len() > 0)
             })
             .collect();
             
@@ -540,7 +539,7 @@ impl<P: GamePhase + PlayablePhase> PlayableActions for StandardRummy<P> {
             .iter()
             .all(|p| p.id != player_id)
         {
-            return Err(format!("Player ID {player_id} already exists"));
+            return Err(format!("Player with ID {player_id} already exists"));
         }
 
         let player = Player::new(player_id, false, self.state.cur_round);
@@ -603,16 +602,16 @@ impl<P: GamePhase + PlayablePhase> PlayableActions for StandardRummy<P> {
     fn move_card_in_hand(&mut self, player_i: usize, old_pos: usize, mut new_pos: usize) 
     -> Result<(), String> 
     {
-        if player_i > self.state.players.len() {
-            return Err(format!("player_i {player_i} is greater than number of players"));
-        }
-        
-        let player_hand = &mut self.state.players[player_i].cards;
-        if old_pos > player_hand.len() {
+        let player_hand = &mut self.state.players
+            .get_mut(player_i)
+            .ok_or(format!("player_i {player_i} is greater than number of players"))?
+            .cards;
+
+        if old_pos >= player_hand.len() {
             return Err(format!("old_pos {old_pos} is greater than the player's hand's size"));
         }
 
-        if new_pos > player_hand.len() {
+        if new_pos >= player_hand.len() {
             new_pos = player_hand.len() - 1;
         }
 

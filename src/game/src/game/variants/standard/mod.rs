@@ -6,7 +6,6 @@ use crate::{
     cards::deck::{Deck, DeckConfig},
     player::Player,
 };
-
 use state::*;
 
 /// Get the number of cards to deal each player at the start of a round,

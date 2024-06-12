@@ -6,18 +6,33 @@ use rand::{rngs::StdRng, seq::SliceRandom, SeedableRng};
 use strum::IntoEnumIterator;
 
 /// Configurable parameters for a deck:
-/// - `shuffle_seed`: Optional seed for deterministically shuffling the deck
+/// - `shuffle_seed`: Optional seed for shuffling; `0` results in no shuffle
 /// - `pack_count`: Number of card packs to include in the deck
 /// - `use_joker`: Whether to add Jokers and use them as wildcard (2 per pack)
 /// - `high_rank`: Whether to override the highest rank (default being King)
 /// - `wildcard_rank`: Whether to have a wildcard rank (mutually exclusive with `use_joker`)
-#[derive(Default, Debug)]
-pub struct DeckConfig {
-    pub shuffle_seed: Option<u64>,
-    pub pack_count: usize,
-    pub use_joker: bool,
-    pub high_rank: Option<Rank>,
-    pub wildcard_rank: Option<Rank>,
+#[derive(Clone, Default, Debug, PartialEq)]
+pub(crate) struct DeckConfig {
+    pub(crate) shuffle_seed: Option<u64>,
+    pub(crate) pack_count: usize,
+    pub(crate) use_joker: bool,
+    pub(crate) high_rank: Option<Rank>,
+    pub(crate) wildcard_rank: Option<Rank>,
+}
+
+impl DeckConfig {
+    /// Creates a new `DeckConfig` with standard values.
+    /// 
+    /// To customize, create the struct manually with intended values.
+    pub(crate) fn new() -> Self {
+        DeckConfig {
+            shuffle_seed: None,
+            pack_count: 1,
+            use_joker: false,
+            high_rank: None,
+            wildcard_rank: None,
+        }
+    }
 }
 
 // TODO: verify cards belong to the deck before adding to discard pile
@@ -38,6 +53,7 @@ impl Deck {
     /// **Note**:
     /// - If `pack_count` < 1, it will be set to 1.
     /// - If `use_joker` is true while `wildcard_rank` is not `None`, `use_joker` will default to `false`.
+    /// - If `shuffle_seed` is `Some`, it will be shuffled according to the seed.
     pub(crate) fn new(mut config: DeckConfig) -> Self {
         if config.pack_count < 1 {
             config.pack_count = 1;
@@ -130,7 +146,7 @@ impl Deck {
         return Ok(self.discard_pile.split_off(0));
     }
 
-    /// Moves cards from `cards` into the discard pile, leaving it empty.
+    /// Drains `cards` into the discard pile.
     pub(crate) fn add_to_discard_pile(&mut self, cards: &mut Vec<Card>) {
         self.discard_pile.append(cards);
     }
@@ -165,12 +181,12 @@ impl Deck {
     /// Generating cards into a `stock` based on `config`.
     fn generate_cards(stock: &mut Vec<Card>, config: &Rc<DeckConfig>) {
         for _ in 0..config.pack_count {
-            for suit in Suit::iter() {
-                if suit == Suit::Joker {
+            for rank in Rank::iter() {
+                if rank == Rank::Joker {
                     continue;
                 }
-                for rank in Rank::iter() {
-                    if rank == Rank::Joker {
+                for suit in Suit::iter() {
+                    if suit == Suit::Joker {
                         continue;
                     }
                     stock.push(Card {
@@ -182,11 +198,13 @@ impl Deck {
             }
 
             if config.use_joker {
-                stock.push(Card {
-                    rank: Rank::Joker,
-                    suit: Suit::Joker,
-                    deck_config: config.clone(),
-                });
+                for _ in 0..2 { // 2 jokers per deck
+                    stock.push(Card {
+                        rank: Rank::Joker,
+                        suit: Suit::Joker,
+                        deck_config: config.clone(),
+                    });
+                }
             }
         }
     }
@@ -194,7 +212,11 @@ impl Deck {
     /// Shuffles cards in a `stock` based on `config`.
     fn shuffle_cards(stock: &mut Vec<Card>, config: &Rc<DeckConfig>) {
         match config.shuffle_seed {
-            Some(seed) => stock.shuffle(&mut StdRng::seed_from_u64(seed)),
+            Some(seed) => {
+                if seed != 0 {
+                    stock.shuffle(&mut StdRng::seed_from_u64(seed));
+                }
+            },
             None => stock.shuffle(&mut rand::thread_rng()),
         }
     }

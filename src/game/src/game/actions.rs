@@ -1,9 +1,9 @@
 use super::state::{Score, State};
 
 /// A result for methods which may branch into different game phases:
-/// - `Next`: Transition to the intended next phase
-/// - `End`: Transition to `RoundEndPhase` (ie, if the round ends due to some condition)
-/// - `Error`: The transition fails due to some error, returning a tuple of `S` (the current state) and an error type `Err`
+/// - `Next`: Transition to the intended next phase, `N`
+/// - `End`: Transition to `RoundEndPhase` as `E` if the round ends due to some condition
+/// - `Error`: Fail the transition, returning a tuple of `S` (game in current phase) and an error `Err`
 pub enum TransitionResult<N, E: RoundEndActions, S, Err> {
     Next(N),
     End(E),

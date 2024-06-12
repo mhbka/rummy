@@ -2,12 +2,8 @@ use std::rc::Rc;
 
 use super::card::Card;
 use super::suit_rank::{Rank, Suit};
+use rand::{rngs::StdRng, seq::SliceRandom, SeedableRng};
 use strum::IntoEnumIterator;
-use rand::{
-    SeedableRng,
-    seq::SliceRandom,
-    rngs::StdRng
-};
 
 /// Configurable parameters for a deck:
 /// - `shuffle_seed`: Optional seed for deterministically shuffling the deck
@@ -21,7 +17,7 @@ pub struct DeckConfig {
     pub pack_count: usize,
     pub use_joker: bool,
     pub high_rank: Option<Rank>,
-    pub wildcard_rank: Option<Rank>
+    pub wildcard_rank: Option<Rank>,
 }
 
 // TODO: verify cards belong to the deck before adding to discard pile
@@ -33,13 +29,13 @@ pub struct DeckConfig {
 pub struct Deck {
     config: Rc<DeckConfig>,
     stock: Vec<Card>,
-    discard_pile: Vec<Card>
+    discard_pile: Vec<Card>,
 }
 
 impl Deck {
     /// Creates a new deck following settings in `config` and shuffles it.
-    /// 
-    /// **Note**: 
+    ///
+    /// **Note**:
     /// - If `pack_count` < 1, it will be set to 1.
     /// - If `use_joker` is true while `wildcard_rank` is not `None`, `use_joker` will default to `false`.
     pub(crate) fn new(mut config: DeckConfig) -> Self {
@@ -55,7 +51,7 @@ impl Deck {
         let mut deck = Deck {
             config: config.clone(),
             stock: Vec::new(),
-            discard_pile: Vec::new()
+            discard_pile: Vec::new(),
         };
 
         Deck::generate_cards(&mut deck.stock, &config);
@@ -65,7 +61,7 @@ impl Deck {
     }
 
     /// Reset the cards by creating a new deck and shuffling it.
-    /// 
+    ///
     /// **NOTE**: This refers to the current `DeckConfig`; if it has changed,
     /// the cards generated will be different from what was initially generated.
     pub(crate) fn reset(&mut self) {
@@ -76,13 +72,16 @@ impl Deck {
     }
 
     /// Draw `amount` cards from the deck stock.
-    /// 
+    ///
     /// If `amount` is greater than the stock size, `Err` is returned.
-    /// 
+    ///
     /// To replenish the stock, one can call `shuffle_discarded` or `turnover_discarded`.
     pub(crate) fn draw(&mut self, amount: usize) -> Result<Vec<Card>, String> {
         if amount > self.stock.len() {
-            return Err(format!("Draw amount ({amount}) greater than stock size ({})", self.stock.len()));
+            return Err(format!(
+                "Draw amount ({amount}) greater than stock size ({})",
+                self.stock.len()
+            ));
         }
 
         let cards = self.stock.split_off(self.stock.len() - amount);
@@ -90,9 +89,9 @@ impl Deck {
     }
 
     /// Draw a specific card from the deck stock.
-    /// 
+    ///
     /// If the card doesn't exist in the stock, return `Err`.
-    /// 
+    ///
     /// If the deck is empty after drawing, shuffle the discarded cards back into it.
     pub(crate) fn draw_specific(&mut self, rank: Rank, suit: Suit) -> Result<Card, String> {
         for i in 0..self.stock.len() {
@@ -107,33 +106,28 @@ impl Deck {
 
     /// See the top card of the discard pile, if there is one.
     pub(crate) fn peek_discard_pile(&self) -> Option<(Rank, Suit)> {
-        self.discard_pile
-            .last()
-            .map(|card| card.data())
+        self.discard_pile.last().map(|card| card.data())
     }
 
     /// Attempt to draw a chosen amount of cards from the discard pile.
-    /// 
+    ///
     /// If the amount is greater than discard pile's size, or the discard pile is empty,
     /// return `Err`.
-    /// 
+    ///
     /// If `None` amount is specified, attempt to draw the entire discard pile.
     pub(crate) fn draw_discard_pile(&mut self, amount: Option<usize>) -> Result<Vec<Card>, String> {
         let discard_size = self.discard_pile.len();
         if discard_size == 0 {
             return Err(format!("Can't draw from empty discard pile"));
-        }
-        else if let Some(a) = amount {
+        } else if let Some(a) = amount {
             if a > discard_size {
-                return Err(format!("Draw amount ({a}) greater than discard pile size ({discard_size})"));
+                return Err(format!(
+                    "Draw amount ({a}) greater than discard pile size ({discard_size})"
+                ));
             }
-            return Ok(
-                self.discard_pile.split_off(discard_size - a)
-            );
+            return Ok(self.discard_pile.split_off(discard_size - a));
         }
-        return Ok(
-            self.discard_pile.split_off(0)
-        );
+        return Ok(self.discard_pile.split_off(0));
     }
 
     /// Moves cards from `cards` into the discard pile, leaving it empty.
@@ -172,18 +166,26 @@ impl Deck {
     fn generate_cards(stock: &mut Vec<Card>, config: &Rc<DeckConfig>) {
         for _ in 0..config.pack_count {
             for suit in Suit::iter() {
-                if suit == Suit::Joker { continue; }
+                if suit == Suit::Joker {
+                    continue;
+                }
                 for rank in Rank::iter() {
-                    if rank == Rank::Joker { continue; }
-                    stock.push(Card { rank, suit, deck_config: config.clone() });
+                    if rank == Rank::Joker {
+                        continue;
+                    }
+                    stock.push(Card {
+                        rank,
+                        suit,
+                        deck_config: config.clone(),
+                    });
                 }
             }
 
             if config.use_joker {
-                stock.push(Card { 
-                    rank: Rank::Joker, 
-                    suit: Suit::Joker, 
-                    deck_config: config.clone() 
+                stock.push(Card {
+                    rank: Rank::Joker,
+                    suit: Suit::Joker,
+                    deck_config: config.clone(),
                 });
             }
         }
@@ -193,7 +195,7 @@ impl Deck {
     fn shuffle_cards(stock: &mut Vec<Card>, config: &Rc<DeckConfig>) {
         match config.shuffle_seed {
             Some(seed) => stock.shuffle(&mut StdRng::seed_from_u64(seed)),
-            None => stock.shuffle(&mut rand::thread_rng())
+            None => stock.shuffle(&mut rand::thread_rng()),
         }
     }
 }

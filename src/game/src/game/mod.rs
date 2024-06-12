@@ -1,10 +1,10 @@
 use actions::*;
 
 pub mod actions;
-pub mod phases;
 pub mod error;
-pub mod variants;
+pub mod phases;
 pub mod state;
+pub mod variants;
 
 pub trait Game {
     type InDrawPhase: DrawActions;
@@ -13,4 +13,3 @@ pub trait Game {
     type InRoundEndPhase: RoundEndActions;
     type InGameEndPhase: GameEndActions;
 }
-

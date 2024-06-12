@@ -6,16 +6,16 @@ pub trait PlayablePhase {}
 
 // GamePhase options.
 pub struct DrawPhase {
-    pub(super) has_drawn: bool
+    pub(super) has_drawn: bool,
 }
 pub struct PlayPhase {
-    pub(super) play_count: usize
+    pub(super) play_count: usize,
 }
 pub struct DiscardPhase {
-    pub(super) has_discarded: bool
+    pub(super) has_discarded: bool,
 }
 pub struct RoundEndPhase {
-    pub(super) has_scored_round: bool
+    pub(super) has_scored_round: bool,
 }
 pub struct GameEndPhase {
     // no state needed, game has ended
@@ -33,4 +33,3 @@ impl PlayablePhase for DrawPhase {}
 impl PlayablePhase for PlayPhase {}
 impl PlayablePhase for DiscardPhase {}
 impl PlayablePhase for RoundEndPhase {}
-

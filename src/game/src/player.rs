@@ -7,7 +7,7 @@ pub struct Player {
     pub(crate) cards: Vec<Card>,
     pub(crate) melds: Vec<Meld>,
     pub(crate) active: bool,
-    pub(crate) joined_in_round: usize
+    pub(crate) joined_in_round: usize,
 }
 
 impl Player {
@@ -18,7 +18,7 @@ impl Player {
             cards: Vec::new(),
             melds: Vec::new(),
             active,
-            joined_in_round
+            joined_in_round,
         }
     }
 

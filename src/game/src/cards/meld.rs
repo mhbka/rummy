@@ -188,14 +188,9 @@ impl Meldable for Run {
                 // No wildcard, so just check for same suit and consecutive (relative) rank
                 if !cards
                     .windows(2)
-                    .all(|w| {
-                        println!("w[0]: {:?} ({}); w[1]: {:?} ({})", w[0], w[0].value(), w[1], w[1].value());
-                        w[0].same_suit_consecutive_rank(w[1])})
+                    .all(|w| w[0].same_suit_consecutive_rank(w[1]))
                 {
                     return Err(format!("Cards don't form a valid run"));
-                }
-                else {
-                    println!("ok!!!");
                 }
             },
             Some(_) => {
@@ -219,10 +214,8 @@ impl Meldable for Run {
             }
         };
 
-        
-        
         let suit = cards[0].suit;
-        let cards: Vec<_> = cards.iter() // clone out the meld cards...
+        let cards: Vec<_> = cards.iter() // reaching here = valid run, so clone out the meld cards...
             .map(|&&c| c)
             .cloned()
             .collect();
@@ -241,33 +234,35 @@ impl Meldable for Run {
             .get(index)
             .ok_or("index is greater than hand_cards' size")?;
 
-        if card.suit != self.suit {
-            return Err("Card's suit isn't same as run's suit".into());
-        } else {
-            match card.deck_config.wildcard_rank {
-                Some(wildcard_rank) => { // if wildcard, it is always valid to layoff
-                    if card.rank == wildcard_rank {
-                        self.cards.push(hand_cards.remove(index));
-                        return Ok(());
-                    }
-                },
-                None => {
-                    if self.cards[0].same_suit_consecutive_rank(card) { // see if card can be added at "bottom" of the run...
-                        self.cards.insert(0, hand_cards.remove(index));
-                        return Ok(());
-                    }
-                    else { // ...or somewhere in the middle 
-                        for (idx, &ref meld_card) in self.cards.iter().skip(1).enumerate() {
-                            if card.same_suit_consecutive_rank(meld_card) {
-                                self.cards.insert(idx, hand_cards.remove(index));
-                                return Ok(());
-                            } 
-                        }
-                    }
-                }
+        if let Some(wildcard_rank) = card.deck_config.wildcard_rank { 
+            // if our card is a wildcard, its always valid to layoff
+            if card.rank == wildcard_rank { 
+                self.cards.push(hand_cards.remove(index));
+                return Ok(());
             }
+            // else, see if there are any wildcards that we could replace in the meld
+            else if let Some((idx, _)) = self.cards 
+                .windows(2)
+                .enumerate()
+                .find(|(_, w)| w[0].rank == wildcard_rank && card.same_suit_consecutive_rank(&w[1])) {
+                    let mut_card = hand_cards.get_mut(index).unwrap();
+                    std::mem::swap(&mut self.cards[idx], mut_card); // if we find one, replace the wildcard and place it into `hand_cards`
+                    return Ok(());
+                }
         }
-        
-        Err("Card cannot be laid off in this run".into())
+        // see if card can be added at the bottom of the run...
+        if card.same_suit_consecutive_rank(&self.cards[0]) { 
+            self.cards.insert(0, hand_cards.remove(index));
+            return Ok(());
+        }
+        // ...or at the top (the only 2 possible places)
+        println!("{:?}: {}; {:?}: {}", self.cards[self.cards.len()-1], self.cards[self.cards.len()-1].value(), card, card.value());
+        if self.cards[self.cards.len()-1].same_suit_consecutive_rank(card) { 
+            self.cards.push(hand_cards.remove(index));
+            return Ok(());
+        }
+        else {
+            Err("Card cannot be laid off in this run".into())
+        }
     }
 }

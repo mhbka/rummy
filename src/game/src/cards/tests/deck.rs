@@ -1,6 +1,7 @@
 #[cfg(test)]
 
 use crate::cards::suit_rank::Rank;
+use crate::cards::suit_rank::Suit;
 
 use super::super::deck::DeckConfig;
 use super::super::deck::Deck;
@@ -94,6 +95,13 @@ fn draw_and_discard_deck() {
 }
 
 #[test]
+fn draw_specific() {
+    let mut deck = Deck::new(DeckConfig::new());
+    assert!(deck.draw_specific(Rank::Ace, Suit::Clubs).is_ok());
+    assert!(deck.draw_specific(Rank::Ace, Suit::Clubs).is_err());
+}
+
+#[test]
 fn shuffle_discarded_deck() {
     let mut deck = Deck::new(DeckConfig::new());
     let mut cards = deck.draw(52).unwrap();
@@ -115,7 +123,7 @@ fn turnover_discarded_deck() {
 
     assert_eq!(deck.stock().len(), 52);
     assert_eq!(deck.discard_pile().len(), 0);
-    assert!(deck.stock() // ... since we didn't shuffle, we can verify turnover by a strictly increasing order of cards
+    assert!(deck.stock() // ... since we didn't shuffle, we can verify turnover by increasing order of cards
         .windows(2)
         .all(|w| w[0] > w[1])
     );

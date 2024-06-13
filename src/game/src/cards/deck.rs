@@ -20,9 +20,9 @@ pub(crate) struct DeckConfig {
 }
 
 impl DeckConfig {
-    /// Creates a new `DeckConfig` with standard values.
+    /// Creates a new `DeckConfig` with standard settings.
     /// 
-    /// To customize, create the struct manually with intended values.
+    /// To customize, create the struct manually with the intended values.
     pub(crate) fn new() -> Self {
         DeckConfig {
             shuffle_seed: None,

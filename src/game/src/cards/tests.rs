@@ -31,7 +31,6 @@ mod card {
         let cfg = Rc::new(DeckConfig {
             shuffle_seed: None,
             pack_count: 1,
-            use_joker: false,
             high_rank: Some(Rank::Three),
             wildcard_rank: None,
         });
@@ -52,6 +51,8 @@ mod card {
 
 
 mod deck {
+    use crate::cards::suit_rank::Rank;
+
     use super::super::deck::DeckConfig;
     use super::super::deck::Deck;
     
@@ -61,7 +62,6 @@ mod deck {
         let mut cfg = DeckConfig {
             shuffle_seed: None,
             pack_count: 1,
-            use_joker: false,
             high_rank: None,
             wildcard_rank: None,
         };
@@ -74,7 +74,6 @@ mod deck {
         assert_eq!(deck.discard_pile().len(), 0);
 
         // `use_joker` should add 2 jokers to the deck
-        cfg.use_joker = true;
         let joker_deck = Deck::new(cfg.clone());
         assert_eq!(joker_deck.stock().len(), 54);
 
@@ -91,7 +90,6 @@ mod deck {
         let mut cfg = DeckConfig {
             shuffle_seed: None,
             pack_count: 2,
-            use_joker: false,
             high_rank: None,
             wildcard_rank: None,
         };
@@ -100,7 +98,7 @@ mod deck {
         assert_eq!(deck.stock().len(), 104);
         assert_eq!(deck.discard_pile().len(), 0);
 
-        cfg.use_joker = true;
+        cfg.wildcard_rank = Some(Rank::Joker);
         let joker_deck = Deck::new(cfg.clone());
         assert_eq!(joker_deck.stock().len(), 108);
     }
@@ -112,7 +110,6 @@ mod deck {
         let cfg = DeckConfig {
             shuffle_seed: Some(0),
             pack_count: 1,
-            use_joker: false,
             high_rank: None,
             wildcard_rank: None,
         };
@@ -155,7 +152,7 @@ mod deck {
             DeckConfig {
                 shuffle_seed: Some(0),
                 pack_count: 1,
-                use_joker: false,
+
                 high_rank: None,
                 wildcard_rank: None
             }
@@ -250,12 +247,6 @@ mod meld {
             Err(err) => panic!("{err}"),
             Ok(_) => {}
         }
-    }
-
-    #[test]
-    /// Test the card permutations that would (not) form a run.
-    fn form_set() {
-
     }
 
     #[test]

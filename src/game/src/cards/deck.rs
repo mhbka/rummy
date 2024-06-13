@@ -10,12 +10,11 @@ use strum::IntoEnumIterator;
 /// - `pack_count`: Number of card packs to include in the deck
 /// - `use_joker`: Whether to add Jokers and use them as wildcard (2 per pack)
 /// - `high_rank`: Whether to override the highest rank (default being King)
-/// - `wildcard_rank`: Whether to have a wildcard rank (mutually exclusive with `use_joker`)
+/// - `wildcard_rank`: Whether to have a wildcard rank (can also be Joker)
 #[derive(Clone, Default, Debug, PartialEq)]
 pub(crate) struct DeckConfig {
     pub(crate) shuffle_seed: Option<u64>,
     pub(crate) pack_count: usize,
-    pub(crate) use_joker: bool,
     pub(crate) high_rank: Option<Rank>,
     pub(crate) wildcard_rank: Option<Rank>,
 }
@@ -28,7 +27,6 @@ impl DeckConfig {
         DeckConfig {
             shuffle_seed: None,
             pack_count: 1,
-            use_joker: false,
             high_rank: None,
             wildcard_rank: None,
         }
@@ -52,15 +50,10 @@ impl Deck {
     ///
     /// **Note**:
     /// - If `pack_count` < 1, it will be set to 1.
-    /// - If `use_joker` is true while `wildcard_rank` is not `None`, `use_joker` will default to `false`.
-    /// - If `shuffle_seed` is `Some`, it will be shuffled according to the seed.
+    /// - If `shuffle_seed` is `Some`, it will always be shuffled according to the seed.
+    /// - If `wildcard_rank` is `Joker`, 2 jokers will be added per pack.
     pub(crate) fn new(mut config: DeckConfig) -> Self {
-        if config.pack_count < 1 {
-            config.pack_count = 1;
-        }
-        if config.wildcard_rank.is_some() && config.use_joker {
-            config.use_joker = false;
-        }
+        config.pack_count = config.pack_count.max(1);
 
         let config = Rc::new(config);
 
@@ -197,7 +190,7 @@ impl Deck {
                 }
             }
 
-            if config.use_joker {
+            if config.wildcard_rank == Some(Rank::Joker) {
                 for _ in 0..2 { // 2 jokers per deck
                     stock.push(Card {
                         rank: Rank::Joker,

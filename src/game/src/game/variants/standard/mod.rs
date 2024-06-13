@@ -3,7 +3,7 @@ pub mod state;
 
 use super::super::phases::*;
 use crate::{
-    cards::deck::{Deck, DeckConfig},
+    cards::{deck::{Deck, DeckConfig}, suit_rank::Rank},
     player::Player,
 };
 use state::*;
@@ -70,9 +70,8 @@ impl StandardRummyGame {
         let deck_config = DeckConfig {
             shuffle_seed: None,
             pack_count: if player_ids.len() < 5 { 1 } else { 2 },
-            use_joker: true,
             high_rank: None,
-            wildcard_rank: None,
+            wildcard_rank: Some(Rank::Joker),
         };
 
         StandardRummyGame::new(player_ids, StandardRummyConfig::new(), deck_config)

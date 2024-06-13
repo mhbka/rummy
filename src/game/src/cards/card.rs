@@ -27,6 +27,49 @@ impl Card {
     pub fn data(&self) -> (Rank, Suit) {
         (self.rank, self.suit)
     }
+
+    /// Obtain the "value" of a `Card`.
+    /// 
+    /// If the deck config has a custom `high_rank`, this function computes the correct value
+    /// taking that into account.
+    /// 
+    /// The value is `4*(relative rank value) + (suit value)`.
+    pub fn value(&self) -> u8 {
+        if self.suit == Suit::Joker || self.rank == Rank::Joker {
+            return 0;
+        }
+
+        let max_rank = Rank::King as u8;
+
+        let highest_rank = match self.deck_config.high_rank {
+           None => max_rank,
+           Some(high_rank) => high_rank as u8
+        };
+
+        let rank_offset = max_rank - highest_rank;
+        let mut relative_self_rank = (self.rank as u8 + rank_offset) % (max_rank + 1);
+
+        // in any custom high rank, Joker is included in offset, so King -> Ace counts as 2 jumps in rank;
+        // here we subtract 1 for ranks after King, up to the custom highest rank.
+        // TODO: optimize this into 1 calculation if possible
+        if let Some(highest_rank) = self.deck_config.high_rank {
+            if self.rank >= Rank::Ace && self.rank <= highest_rank {
+                relative_self_rank -= 1;
+            }
+        }
+
+        4 * relative_self_rank + self.suit as u8
+    }
+
+    /// Whether or not `other` has the same suit and the consecutive (relative) rank. For eg:
+    /// - `high_rank = None`: (Two, Clubs) -> (Three, Clubs) = `true`
+    /// - `high_rank = None`: (Two, Clubs) -> (Three, Spades) = `false`
+    /// - `high_rank = Some(Two)`: (Two, Clubs) -> (Three, Clubs) = `false`
+    /// 
+    /// Mostly useful for validating runs.
+    pub fn same_suit_consecutive_rank(&self, other: &Card) -> bool {
+        self.value() + 4 == other.value()
+    }
 }
 
 /// Equality impls
@@ -48,21 +91,7 @@ impl Eq for Card {}
 /// then 2 > Ace > King ... 4 > 3.
 impl Ord for Card {
     fn cmp(&self, other: &Self) -> Ordering {
-        if self.rank == other.rank {
-            self.suit.cmp(&other.suit)
-        } else {
-            let max_rank = Rank::King as u8;
-            let highest_rank = if self.deck_config.high_rank.is_none() {
-                max_rank
-            } else {
-                self.deck_config.high_rank.unwrap() as u8
-            };
-            let rank_offset = max_rank - highest_rank;
-
-            let self_rank = (self.rank as u8 + rank_offset) % (max_rank + 1);
-            let other_rank = (other.rank as u8 + rank_offset) % (max_rank + 1);
-            self_rank.cmp(&other_rank)
-        }
+        self.value().cmp(&other.value())
     }
 }
 

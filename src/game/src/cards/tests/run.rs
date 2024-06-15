@@ -140,7 +140,25 @@ fn valid_layoff_run() {
 }   
 
 #[test]
-fn wildcard_layoff_run() {
+fn add_wildcard_layoff_run() {
+    let mut cfg = DeckConfig::new();
+    cfg.wildcard_rank = Some(Rank::Joker);
+    let cfg = Rc::new(cfg);
+
+    let cards = vec![
+        Card { rank: Rank::Two, suit: Suit::Clubs, deck_config: cfg.clone() },
+        Card { rank: Rank::Three, suit: Suit::Clubs, deck_config: cfg.clone() },
+        Card { rank: Rank::Four, suit: Suit::Clubs, deck_config: cfg.clone() },
+    ];
+    let mut indices = vec![0, 1, 2];
+    let mut run = Run::new(&mut cards.clone(), &mut indices).unwrap();
+    let mut card = vec![Card { rank: Rank::Joker, suit: Suit::Joker, deck_config: cfg.clone() }];
+
+    assert!(run.layoff_card(&mut card, 0).is_ok());
+}
+
+#[test]
+fn replace_wildcard_layoff_run() {
     let mut cfg = DeckConfig::new();
     cfg.wildcard_rank = Some(Rank::Joker);
     let cfg = Rc::new(cfg);
@@ -155,7 +173,5 @@ fn wildcard_layoff_run() {
     let mut run = Run::new(&mut cards.clone(), &mut indices).unwrap();
     let mut card = vec![Card { rank: Rank::Four, suit: Suit::Clubs, deck_config: cfg.clone() }];
 
-    if let Err(err) = run.layoff_card(&mut card, 0) {
-        panic!("{err}");
-    }
+    assert!(run.layoff_card(&mut card, 0).is_ok());
 }

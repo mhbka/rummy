@@ -16,6 +16,8 @@ pub trait Meldable {
     /// Attempt to add a card from `cards`, as chosen by `index`, to the meld.
     ///
     /// If valid, the card is moved from `cards` into the meld and `Ok` is returned.
+    /// 
+    /// If a wildcard in the meld can be replaced by the layoff card, they are swapped.
     ///
     /// Else, `Err` is returned and `hand_cards` is left untouched.
     fn layoff_card(&mut self, hand_cards: &mut Vec<Card>, index: usize) -> Result<(), String>;
@@ -176,7 +178,7 @@ impl Meldable for Run {
         let deck_config = cards[0].deck_config.clone();
 
         let (mut cards, mut wildcards) = match deck_config.wildcard_rank {
-            Some(wildcard_rank) => cards.iter().partition(|&c| c.rank == wildcard_rank),
+            Some(wildcard_rank) => cards.iter().partition(|&c| c.rank != wildcard_rank),
             None => (cards.iter().collect(), Vec::new()),
         };
 
@@ -213,9 +215,10 @@ impl Meldable for Run {
                 }
             }
         };
-
+        
+        // reaching here = valid run, so clone out the meld cards...
         let suit = cards[0].suit;
-        let cards: Vec<_> = cards.iter() // reaching here = valid run, so clone out the meld cards...
+        let cards: Vec<_> = cards.iter() 
             .map(|&&c| c)
             .cloned()
             .collect();
@@ -241,10 +244,9 @@ impl Meldable for Run {
                 return Ok(());
             }
             // else, see if there are any wildcards that we could replace in the meld
-            else if let Some((idx, _)) = self.cards 
+            else if let Some(idx) = self.cards 
                 .windows(2)
-                .enumerate()
-                .find(|(_, w)| w[0].rank == wildcard_rank && card.same_suit_consecutive_rank(&w[1])) {
+                .position(|w| w[0].is_wildcard() && card.same_suit_consecutive_rank(&w[1])) {
                     let mut_card = hand_cards.get_mut(index).unwrap();
                     std::mem::swap(&mut self.cards[idx], mut_card); // if we find one, replace the wildcard and place it into `hand_cards`
                     return Ok(());
@@ -256,8 +258,7 @@ impl Meldable for Run {
             return Ok(());
         }
         // ...or at the top (the only 2 possible places)
-        println!("{:?}: {}; {:?}: {}", self.cards[self.cards.len()-1], self.cards[self.cards.len()-1].value(), card, card.value());
-        if self.cards[self.cards.len()-1].same_suit_consecutive_rank(card) { 
+        else if self.cards[self.cards.len()-1].same_suit_consecutive_rank(card) { 
             self.cards.push(hand_cards.remove(index));
             return Ok(());
         }

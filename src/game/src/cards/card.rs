@@ -67,9 +67,15 @@ impl Card {
     /// - `high_rank = Some(Two)`: (Two, Clubs) -> (Three, Clubs) = `false`
     /// 
     /// Mostly useful for validating runs.
-    pub fn same_suit_consecutive_rank(&self, other: &Card) -> bool {
+    pub(crate) fn same_suit_consecutive_rank(&self, other: &Card) -> bool {
+        println!("comparing {self:?} ({}) with {other:?} ({:?})", self.value(), other.value());
         self.value() + 4 == other.value()
     }
+
+    /// Returns whether the card is a `wildcard`, as determined by `deck_config`.
+    pub(crate) fn is_wildcard(&self) -> bool {
+        Some(self.rank) == self.deck_config.wildcard_rank
+    } 
 }
 
 /// Equality impls

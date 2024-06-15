@@ -68,7 +68,6 @@ impl Card {
     /// 
     /// Mostly useful for validating runs.
     pub(crate) fn same_suit_consecutive_rank(&self, other: &Card) -> bool {
-        println!("comparing {self:?} ({}) with {other:?} ({:?})", self.value(), other.value());
         self.value() + 4 == other.value()
     }
 

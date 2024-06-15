@@ -17,7 +17,7 @@ pub trait Meldable {
     ///
     /// If valid, the card is moved from `cards` into the meld and `Ok` is returned.
     /// 
-    /// If a wildcard in the meld can be replaced by the layoff card, they are swapped.
+    /// If a wildcard in the meld can be replaced by the layoff card, they are swapped and `Ok` is returned.
     ///
     /// Else, `Err` is returned and `hand_cards` is left untouched.
     fn layoff_card(&mut self, hand_cards: &mut Vec<Card>, index: usize) -> Result<(), String>;
@@ -60,6 +60,18 @@ impl Meldable for Meld {
 pub struct Set {
     cards: Vec<Card>,
     set_rank: Rank,
+}
+
+impl Set {
+    /// Get an immutable reference to the set's cards.
+    pub fn cards(&self) -> &Vec<Card> {
+        &self.cards
+    }
+
+    /// Get the set's rank.
+    pub fn rank(&self) -> Rank {
+        self.set_rank
+    }
 }
 
 impl Meldable for Set {
@@ -139,17 +151,17 @@ impl Meldable for Set {
             .get(index)
             .ok_or("index is greater than hand_cards' size")?;
 
-        if card.rank != self.set_rank {
-            return Err("Card rank is not same as set's rank".to_string());
+        if card.rank == self.set_rank {
+            self.cards.push(hand_cards.remove(index));
+            return Ok(());
         } else if let Some(wildcard_rank) = card.deck_config.wildcard_rank {
-            if card.rank != wildcard_rank {
-                return Err("Card rank is not same as set's rank or wildcard rank".to_string());
+            if card.rank == wildcard_rank {
+                self.cards.push(hand_cards.remove(index));
+                return Ok(());
             }
         }
 
-        self.cards.push(hand_cards.remove(index));
-
-        Ok(())
+        Err("Card cannot be laid off in this set".into())
     }
 }
 
@@ -158,6 +170,18 @@ impl Meldable for Set {
 pub struct Run {
     cards: Vec<Card>,
     suit: Suit,
+}
+
+impl Run {
+    /// Get an immutable reference to the run's cards.
+    pub fn cards(&self) -> &Vec<Card> {
+        &self.cards
+    }
+
+    /// Get the run's suit.
+    pub fn suit(&self) -> Suit {
+        self.suit
+    }
 }
 
 impl Meldable for Run {
@@ -215,6 +239,8 @@ impl Meldable for Run {
                 }
             }
         };
+
+        cards.append(&mut wildcards);
         
         // reaching here = valid run, so clone out the meld cards...
         let suit = cards[0].suit;

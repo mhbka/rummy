@@ -85,6 +85,23 @@ fn valid_run_wrong_order_indices() {
 }
 
 #[test]
+fn valid_run_wildcard() {
+    let mut cfg = DeckConfig::new();
+    cfg.wildcard_rank = Some(Rank::Jack);
+    let cfg = Rc::new(cfg);
+    let cards = vec![
+        Card { rank: Rank::Ace, suit: Suit::Clubs, deck_config: cfg.clone() },
+        Card { rank: Rank::Jack, suit: Suit::Clubs, deck_config: cfg.clone() }, // the wildcard
+        Card { rank: Rank::Two, suit: Suit::Clubs, deck_config: cfg.clone() },
+    ];
+    let mut indices = vec![0, 1, 2];
+    let run = Run::new(&mut cards.clone(), &mut indices);
+    assert!(run.is_ok());
+    assert!(run.unwrap().cards().len() == 3);
+}
+
+
+#[test]
 fn valid_run_high_rank() {
     let mut high_rank_cfg = DeckConfig::new();
     high_rank_cfg.high_rank = Some(Rank::Two); // high rank is Two...

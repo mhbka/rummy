@@ -33,6 +33,21 @@ pub enum Meld {
     Run(Run),
 }
 
+impl Meld {
+    /// Return if the meld is a set.
+    pub fn is_set(&self) -> bool {
+        if let Meld::Set(_) = self { 
+            return true; 
+        }
+        false 
+    }
+
+    /// Return if the meld is a run.
+    pub fn is_run(&self) -> bool {
+        !self.is_set()
+    }
+}
+
 impl Meldable for Meld {
     fn new(hand_cards: &mut Vec<Card>, indices: &Vec<usize>) -> Result<Self, String>
     where

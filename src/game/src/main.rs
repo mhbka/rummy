@@ -54,7 +54,7 @@ fn handle_round(mut game: StandardRummy<DrawPhase>) -> StandardRummy<RoundEndPha
 fn print_state<C, S: Score>(state: &State<C, S>) {
     println!("---------------");
     println!("Current player: {}", state.players[state.cur_player].id());
-    println!("Hand: {:?}", state.players[state.cur_player].cards());
+    println!("Hand: {:?} ({} cards)", state.players[state.cur_player].cards(), state.players[state.cur_player].cards().len());
     println!("Deck size: {}", state.deck.stock().len());
     println!(
         "Top discard card and size: {:?}, {}",

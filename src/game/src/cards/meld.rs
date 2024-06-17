@@ -102,7 +102,7 @@ impl Meldable for Set {
                     .get(i)
                     .ok_or("index is greater than hand_cards size".to_string())
             })
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<Vec<_>, _>>()?; // lmfao
 
         match cards[0].deck_config.wildcard_rank {
             // check if every card has same rank, or the wildcard rank
@@ -138,14 +138,13 @@ impl Meldable for Set {
             // we check if every card has same rank
             None => {
                 if cards.iter().all(|card| card.rank == cards[0].rank) {
-                    let cards: Vec<_> = cards // clone meld cards into a new vec
+                    let cards: Vec<_> = cards // clone meld cards into a new vec...
                         .into_iter()
                         .cloned()
                         .collect();
 
                     let mut idx = 0;
-                    hand_cards.retain(|_| {
-                        // remove meld cards from hand
+                    hand_cards.retain(|_| { // ... and remove them from the hand cards                        
                         idx += 1;
                         !indices.contains(&(idx - 1))
                     });

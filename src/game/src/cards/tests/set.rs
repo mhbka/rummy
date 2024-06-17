@@ -47,13 +47,18 @@ fn invalid_set_invalid_indices() {
 #[test]
 fn valid_set() {
     let cfg = Rc::new(DeckConfig::new());
-    let cards = vec![
+    let mut cards = vec![
         Card { rank: Rank::Ace, suit: Suit::Clubs, deck_config: cfg.clone() },
         Card { rank: Rank::Ace, suit: Suit::Diamonds, deck_config: cfg.clone() },
         Card { rank: Rank::Ace, suit: Suit::Hearts, deck_config: cfg.clone() },
     ];
+    let backup_cards = cards.clone();
     let mut indices = vec![0, 1, 2];
-    assert!(Set::new(&mut cards.clone(), &mut indices).is_ok());
+    let set = Set::new(&mut cards, &mut indices);
+
+    assert!(cards.len() == 0);
+    assert!(set.is_ok());
+    assert!(set.unwrap().cards() == &backup_cards);
 }
 
 #[test]
@@ -65,8 +70,13 @@ fn valid_set_wrong_order_indices() {
         Card { rank: Rank::Ace, suit: Suit::Hearts, deck_config: cfg.clone() },
         Card { rank: Rank::Ace, suit: Suit::Spades, deck_config: cfg.clone() }
     ];
+    let backup_cards = cards.clone();
     let mut indices = vec![2, 0, 3, 1]; // in the wrong order
-    assert!(Set::new(&mut cards, &mut indices).is_ok());
+    let set = Set::new(&mut cards, &mut indices);
+
+    assert!(cards.len() == 0);
+    assert!(set.is_ok());
+    assert!(set.unwrap().cards() == &backup_cards);
 }
 
 #[test]
@@ -79,10 +89,13 @@ fn valid_set_wildcard() {
         Card { rank: Rank::Ace, suit: Suit::Diamonds, deck_config: cfg.clone() },
         Card { rank: Rank::Five, suit: Suit::Hearts, deck_config: cfg.clone() }, // the wildcard
     ];
+    let backup_cards = cards.clone();
     let mut indices = vec![0, 1, 2];
     let set = Set::new(&mut cards.clone(), &mut indices);
+    
+    assert!(cards.len() == 0);
     assert!(set.is_ok());
-    assert!(set.unwrap().cards().len() == 3);
+    assert!(set.unwrap().cards() == &backup_cards);
 } 
 
 #[test]
@@ -111,7 +124,15 @@ fn valid_layoff_set() {
     let mut indices = vec![0, 1, 2];
     let mut set = Set::new(&mut cards.clone(), &mut indices).unwrap();
     let mut layoff_card = vec![Card { rank: Rank::Ace, suit: Suit::Spades, deck_config: cfg.clone() }];
+
     assert!(set.layoff_card(&mut layoff_card, 0).is_ok());
+    assert!(layoff_card.len() == 0);
+    assert!(set.cards() == &vec![
+        Card { rank: Rank::Ace, suit: Suit::Clubs, deck_config: cfg.clone() },
+        Card { rank: Rank::Ace, suit: Suit::Diamonds, deck_config: cfg.clone() },
+        Card { rank: Rank::Ace, suit: Suit::Hearts, deck_config: cfg.clone() },
+        Card { rank: Rank::Ace, suit: Suit::Spades, deck_config: cfg.clone() }
+    ]);
 }     
 
 #[test]
@@ -130,6 +151,13 @@ fn add_wildcard_layoff_set() {
     let mut card = vec![Card { rank: Rank::Joker, suit: Suit::Joker, deck_config: cfg.clone() }];
 
     assert!(set.layoff_card(&mut card, 0).is_ok());
+    assert!(card.len() == 0);
+    assert!(set.cards() == &vec![
+        Card { rank: Rank::Ace, suit: Suit::Clubs, deck_config: cfg.clone() },
+        Card { rank: Rank::Ace, suit: Suit::Diamonds, deck_config: cfg.clone() },
+        Card { rank: Rank::Ace, suit: Suit::Hearts, deck_config: cfg.clone() },
+        Card { rank: Rank::Joker, suit: Suit::Joker, deck_config: cfg.clone() }
+    ]);
 }
 
 #[test]
@@ -149,6 +177,13 @@ fn replace_wildcard_layoff_set() {
     let mut card = vec![Card { rank: Rank::Ace, suit: Suit::Spades, deck_config: cfg.clone() }];
 
     assert!(set.layoff_card(&mut card, 0).is_ok());
+    assert!(card == vec![Card { rank: Rank::Joker, suit: Suit::Joker, deck_config: cfg.clone() }]);
+    assert!(set.cards() == &vec![
+        Card { rank: Rank::Ace, suit: Suit::Clubs, deck_config: cfg.clone() },
+        Card { rank: Rank::Ace, suit: Suit::Diamonds, deck_config: cfg.clone() },
+        Card { rank: Rank::Ace, suit: Suit::Hearts, deck_config: cfg.clone() },
+        Card { rank: Rank::Ace, suit: Suit::Spades, deck_config: cfg.clone() }
+    ]);
 }
 
 #[test]
@@ -166,10 +201,10 @@ fn add_same_cards_layoff_set() {
     let mut layoff_cards = cards.clone();
     let mut indices = vec![0, 1, 2, 3];
     let mut set = Set::new(&mut cards.clone(), &mut indices).unwrap();
+    let mut set_cards = cards.clone();
+    set_cards.append(&mut cards.clone());
 
-    //assert!(set.layoff_card(&mut layoff_cards, 0).is_ok()); // should be ok to layoff the same card (ie, if using >1 pack in the deck)
-    
-    if let Err(err) = set.layoff_card(&mut layoff_cards, 0) {
-        panic!("{err}");
-    }
+    assert!(set.layoff_card(&mut layoff_cards, 0).is_ok()); // should be ok to layoff the same card (ie, if using >1 pack in the deck)
+    assert!(layoff_cards.len() == 0);
+    assert!(set.cards() == &set_cards);
 }

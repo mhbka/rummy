@@ -68,12 +68,13 @@ fn valid_run() {
         Card { rank: Rank::Two, suit: Suit::Clubs, deck_config: cfg.clone() },
         Card { rank: Rank::Three, suit: Suit::Clubs, deck_config: cfg.clone() }
     ];
+    let backup_cards = cards.clone();
     let mut indices = vec![0, 1, 2];
     let run = Run::new(&mut cards.clone(), &mut indices);
 
     assert!(cards.len() == 0);
     assert!(run.is_ok());
-    assert!(run.unwrap().cards() == &cards);
+    assert!(run.unwrap().cards() == &backup_cards);
 }
 
 #[test]
@@ -84,12 +85,13 @@ fn valid_run_wrong_order_indices() {
         Card { rank: Rank::Two, suit: Suit::Clubs, deck_config: cfg.clone() },
         Card { rank: Rank::Three, suit: Suit::Clubs, deck_config: cfg.clone() }
     ];
+    let backup_cards = cards.clone();
     let mut indices = vec![2, 0, 1]; // in the wrong order
     let run = Run::new(&mut cards, &mut indices);
 
     assert!(cards.len() == 0);
     assert!(run.is_ok());
-    assert!(run.unwrap().cards() == &cards);
+    assert!(run.unwrap().cards() == &backup_cards);
 }
 
 #[test]
@@ -102,12 +104,13 @@ fn valid_run_wildcard() {
         Card { rank: Rank::Jack, suit: Suit::Clubs, deck_config: cfg.clone() }, // the wildcard
         Card { rank: Rank::Two, suit: Suit::Clubs, deck_config: cfg.clone() },
     ];
+    let backup_cards = cards.clone();
     let mut indices = vec![0, 1, 2];
     let run = Run::new(&mut cards.clone(), &mut indices);
 
     assert!(cards.len() == 0);
     assert!(run.is_ok());
-    assert!(run.unwrap().cards() == &cards);
+    assert!(run.unwrap().cards() == &backup_cards);
 }
 
 
@@ -121,12 +124,13 @@ fn valid_run_high_rank() {
         Card { rank: Rank::Ace, suit: Suit::Clubs, deck_config: high_rank_cfg.clone() },
         Card { rank: Rank::Two, suit: Suit::Clubs, deck_config: high_rank_cfg.clone() },
     ]; 
+    let backup_cards = cards.clone();
     let mut indices = vec![0, 1, 2];
     let run = Run::new(&mut cards, &mut indices);
 
     assert!(cards.len() == 0);
     assert!(run.is_ok());
-    assert!(run.unwrap().cards() == &cards);
+    assert!(run.unwrap().cards() == &backup_cards);
 }
 
 #[test]

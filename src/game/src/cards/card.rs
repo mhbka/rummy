@@ -4,9 +4,7 @@ use super::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    cmp::Ordering,
-    fmt::{Debug, Display},
-    rc::Rc,
+    cmp::Ordering, fmt::{Debug, Display}, hash::Hash, rc::Rc
 };
 
 /// A card.
@@ -106,7 +104,7 @@ impl PartialOrd for Card {
     }
 }
 
-/// Display impls
+// Display impls
 impl Debug for Card {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("")
@@ -118,5 +116,13 @@ impl Debug for Card {
 impl Display for Card {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?} of {:?}", self.rank, self.suit)
+    }
+}
+
+// Hash impl (for checking that 2 collections hold the same Cards regardless of order)
+impl Hash for Card {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (self.rank as u8).hash(state);
+        (self.suit as u8).hash(state);
     }
 }

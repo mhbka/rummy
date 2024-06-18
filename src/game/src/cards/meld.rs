@@ -121,13 +121,8 @@ impl Meldable for Set {
                         }
                     }
                 }) {
-                    // set_rank has been set, and every card has this rank or the wildcard rank
-                    if let Some(set_rank) = set_rank {
-                        let cards = cards.into_iter().cloned().collect();
-                        return Ok(Set { set_rank, cards });
-                    }
-                    // every card is a wildcard, which is not a valid set
-                    else {
+                    // if set_rank is None, there is no none-wildcard, which isn't valid
+                    if let None = set_rank {
                         return Err("A set cannot be formed out of only wildcards".into());
                     }
                 } else {
@@ -137,38 +132,47 @@ impl Meldable for Set {
 
             // we check if every card has same rank
             None => {
-                if cards.iter().all(|card| card.rank == cards[0].rank) {
-                    let cards: Vec<_> = cards // clone meld cards into a new vec...
-                        .into_iter()
-                        .cloned()
-                        .collect();
-
-                    let mut idx = 0;
-                    hand_cards.retain(|_| { // ... and remove them from the hand cards                        
-                        idx += 1;
-                        !indices.contains(&(idx - 1))
-                    });
-
-                    return Ok(Set {
-                        set_rank: cards[0].rank,
-                        cards,
-                    });
-                } else {
+                if !cards.iter().all(|card| card.rank == cards[0].rank) {
                     return Err("Cards do not form a valid set".into());
                 }
             }
         }
+
+        // if we reach here, we have a valid set
+        let cards: Vec<_> = cards // clone meld cards into a new vec...
+        .into_iter()
+        .cloned()
+        .collect();
+
+        let mut idx = 0;
+        hand_cards.retain(|_| { // ... and remove them from the hand cards                        
+            idx += 1;
+            !indices.contains(&(idx - 1))
+        });
+
+        Ok(Set {
+            set_rank: cards[0].rank,
+            cards,
+        })
     }
 
     fn layoff_card(&mut self, hand_cards: &mut Vec<Card>, index: usize) -> Result<(), String> {
         let card = hand_cards
-            .get(index)
+            .get_mut(index)
             .ok_or("index is greater than hand_cards' size")?;
 
+        // if our card has the set's rank, swap with any wildcard in the meld first;
+        // if there aren't any, then just push into the meld
         if card.rank == self.set_rank {
-            self.cards.push(hand_cards.remove(index));
+            if let Some(wildcard) = self.cards.iter_mut().find(|c| c.is_wildcard()) {
+                std::mem::swap(wildcard, card);
+            } else { 
+                self.cards.push(hand_cards.remove(index));
+            }
             return Ok(());
-        } else if let Some(wildcard_rank) = card.deck_config.wildcard_rank {
+        } 
+        // else, if the layoff card is a wildcard, add it
+        else if let Some(wildcard_rank) = card.deck_config.wildcard_rank {
             if card.rank == wildcard_rank {
                 self.cards.push(hand_cards.remove(index));
                 return Ok(());
@@ -266,7 +270,7 @@ impl Meldable for Run {
         let mut idx = 0;
         hand_cards.retain(|_| { // ...and remove them from the hand cards
             idx += 1;
-            indices.contains(&(idx - 1))
+            !indices.contains(&(idx - 1))
         });
 
         Ok(Run { cards, suit })

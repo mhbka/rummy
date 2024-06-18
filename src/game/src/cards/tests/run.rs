@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 #[cfg(test)]
 
 use std::rc::Rc;
@@ -63,14 +64,14 @@ fn invalid_run_high_rank() {
 #[test]
 fn valid_run() {
     let cfg = Rc::new(DeckConfig::new());
-    let cards = vec![
+    let mut cards = vec![
         Card { rank: Rank::Ace, suit: Suit::Clubs, deck_config: cfg.clone() },
         Card { rank: Rank::Two, suit: Suit::Clubs, deck_config: cfg.clone() },
         Card { rank: Rank::Three, suit: Suit::Clubs, deck_config: cfg.clone() }
     ];
     let backup_cards = cards.clone();
     let mut indices = vec![0, 1, 2];
-    let run = Run::new(&mut cards.clone(), &mut indices);
+    let run = Run::new(&mut cards, &mut indices);
 
     assert!(cards.len() == 0);
     assert!(run.is_ok());
@@ -99,14 +100,15 @@ fn valid_run_wildcard() {
     let mut cfg = DeckConfig::new();
     cfg.wildcard_rank = Some(Rank::Jack);
     let cfg = Rc::new(cfg);
-    let cards = vec![
+    let mut cards = vec![
         Card { rank: Rank::Ace, suit: Suit::Clubs, deck_config: cfg.clone() },
         Card { rank: Rank::Jack, suit: Suit::Clubs, deck_config: cfg.clone() }, // the wildcard
         Card { rank: Rank::Two, suit: Suit::Clubs, deck_config: cfg.clone() },
     ];
-    let backup_cards = cards.clone();
+    let mut backup_cards = cards.clone();
+    backup_cards.sort();
     let mut indices = vec![0, 1, 2];
-    let run = Run::new(&mut cards.clone(), &mut indices);
+    let run = Run::new(&mut cards, &mut indices);
 
     assert!(cards.len() == 0);
     assert!(run.is_ok());
